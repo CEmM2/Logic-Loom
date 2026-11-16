@@ -1,0 +1,4 @@
+Sidecar binaries land here via `pnpm sidecar:build:<os>`.
+Dev runs the sidecar via `uv run logic-loom-api` instead; this placeholder
+only satisfies Tauri's bundle-resource path validation when no sidecar
+binary has been built yet.

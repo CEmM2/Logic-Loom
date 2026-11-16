@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "assistant.proposal_ideas",
+  "name": "Proposal ideas (Assistant)",
+  "category": "Proposal Writing",
+  "description": "Extract research directions, specific aims, and risks/mitigations from the Assistant batch.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "scope"],
+  "output_format": "markdown",
+  "default_output_subdir": "Assistant/ProposalIdeas",
+  "prompt_slots": {
+    "main": "assistant.proposal_ideas"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Directions", "Specific Aims", "Risks"]
+  }
+}

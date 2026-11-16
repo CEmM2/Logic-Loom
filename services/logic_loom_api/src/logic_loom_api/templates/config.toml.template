@@ -1,0 +1,54 @@
+# Logic-Loom configuration.
+#
+# Replace the <PLACEHOLDER> values below before first launch. Anything left as
+# "<...>" triggers auto-detect on first launch and a confirmation dialog.
+
+# Published Obsidian vault root (zsum's publisher.vault_path). The only path
+# first-run setup requires.
+vault_path = "<VAULT_PATH>"
+
+# Optional AKMS graph source vault. Leave unset to auto-resolve via the AKMS
+# checkout's Packages/Nodes_Vault (when akms_repo is set), AKMS_GLOBAL_VAULT,
+# or the AKMS default (~/.claude/akms/nodes).
+# akms_global_vault = "<AKMS_GLOBAL_VAULT_PATH>"
+
+# Developer-only source checkouts. AKMS and zotero-summarizer run from the
+# installed app, so leave these unset unless you work on those projects. A
+# checkout enables its legacy batch plan, Packages/Nodes_Vault, local graph
+# nodes and the /api/nlm developer scripts.
+# akms_repo = "<AKMS_REPO_PATH>"
+# zsum_repo = "<ZSUM_REPO_PATH>"
+
+# Vault search engine: "ripgrep" or "qmd".
+search_backend = "ripgrep"
+
+# Optional: name of the QMD collection that mirrors the vault. Required only
+# when search_backend = "qmd".
+# vault_qmd_collection = "logic-loom-vault"
+
+# ── Assistant mode (research paper discovery + workflows) ──────────────────
+# Polite-pool email used as the OpenAlex User-Agent contact. Replace the
+# placeholder before first launch — anything starting with "<" is filtered
+# out by Settings.load() so first-run UX flags it.
+openalex_user_email      = "<OPENALEX_USER_EMAIL>"
+# Optional OpenAlex API key (premium tier). Leave as placeholder to use the
+# public polite-pool endpoint.
+openalex_api_key         = "<OPENALEX_API_KEY>"
+# Optional Semantic Scholar API key. Public endpoint is used when this is
+# left as a placeholder.
+semantic_scholar_api_key = "<SEMANTIC_SCHOLAR_API_KEY>"
+# Optional explicit Assistant workspace root. Leave unset to use the resolver
+# default: <akms_workspace>/../Assistant-Workspace (or <akms_workspace>/assistant/
+# when assistant_workspace_colocate = true).
+# assistant_workspace          = "<ASSISTANT_WORKSPACE>"
+# assistant_workspace_colocate = false
+
+# ── akms-records stores (optional, read-only) ──────────────────────────────
+# Needs the 'records' extra. Stores are never discovered by scanning; list each
+# one. scope is akms-records' kind:id. A project scope needs repo (records live
+# in <repo>/.knowledge/records); agent/shared scopes live under
+# ~/.knowledge/records (or `home`).
+# [[records_stores]]
+# id    = "my-project"
+# scope = "project:my-project"
+# repo  = "<PROJECT_REPO_PATH>"

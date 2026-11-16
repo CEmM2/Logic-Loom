@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "assistant.related_work",
+  "name": "Related work (Assistant)",
+  "category": "Paper Writing",
+  "description": "Draft a Related Work section that situates the batch's papers within a broader research conversation.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "research_question"],
+  "output_format": "markdown",
+  "default_output_subdir": "Assistant/RelatedWork",
+  "prompt_slots": {
+    "main": "assistant.related_work"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Lines of work", "Positioning", "Open questions"]
+  }
+}

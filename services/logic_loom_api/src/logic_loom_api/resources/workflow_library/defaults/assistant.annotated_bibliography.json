@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "assistant.annotated_bibliography",
+  "name": "Annotated bibliography (Assistant)",
+  "category": "Literature Review",
+  "description": "Produce a structured annotated bibliography for the batch — per-paper summary, contribution, and relevance.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "scope"],
+  "output_format": "markdown",
+  "default_output_subdir": "Assistant/AnnotatedBibliographies",
+  "prompt_slots": {
+    "main": "assistant.annotated_bibliography"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Entries"]
+  }
+}

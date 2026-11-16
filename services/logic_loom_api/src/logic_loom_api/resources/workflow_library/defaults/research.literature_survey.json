@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "research.literature_survey",
+  "name": "Literature Survey",
+  "category": "Research Synthesis",
+  "description": "Synthesize themes, methods, limitations, and gaps from the selected source batch.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "scope"],
+  "output_format": "markdown",
+  "default_output_subdir": "Research/Surveys",
+  "prompt_slots": {
+    "main": "workflow.literature_survey.main"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Themes", "Methods", "Limitations", "Gaps"]
+  }
+}

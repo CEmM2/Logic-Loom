@@ -1,0 +1,117 @@
+name: docs
+
+# The documentation site (mkdocs.yml, docs/). Every PR that touches it builds the
+# site strictly, so a broken link, missing page or bad anchor fails the PR. A `v*`
+# tag pushed to the public repository builds the site from that tag and publishes
+# it to GitHub Pages, so https://cemm2.github.io/Logic-Loom/ always describes the
+# latest release, never unreleased work on master.
+#
+# One-time setup in the public repository: Settings -> Pages -> Source: "GitHub
+# Actions", and allow `v*` tags in Settings -> Environments -> github-pages ->
+# deployment branches and tags.
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "docs/**"
+      - "mkdocs.yml"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CLAUDE.md"
+      - "AGENTS.md"
+      - "dev/STATUS.md"
+      - "dev/docs/**"
+      - "dev/architecture/**"
+      - "scripts/gen_docs_reference.py"
+      - "scripts/mkdocs_hooks.py"
+      - "scripts/check_docs.py"
+      - "services/logic_loom_api/src/logic_loom_api/config.py"
+      - "services/logic_loom_api/src/logic_loom_api/main.py"
+      - "services/logic_loom_api/src/logic_loom_api/routes/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/docs.yml"
+  push:
+    tags: ["v*"]
+  # Manual publish, e.g. to re-deploy a release tag after a docs-only fix:
+  # run it from master with `tag` set, so this version of the workflow builds
+  # that tag's docs.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and publish (e.g. v0.3.0). Empty = the selected branch."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build docs (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      # Every extra, so the generated HTTP API page lists the optional route groups too.
+      - name: Install the sidecar and the docs toolchain
+        run: uv sync --locked --all-packages --all-extras --group docs
+
+      - name: Check root Markdown links
+        run: uv run python scripts/check_docs.py
+
+      - name: Generate the configuration and HTTP API reference pages
+        run: uv run python scripts/gen_docs_reference.py
+
+      - name: Build site
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+          LOGIC_LOOM_DOCS_COPYRIGHT: >-
+            Logic-Loom documentation · ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || 'development build' }}
+        run: uv run mkdocs build --strict --site-dir site
+
+      - name: Upload Pages artifact
+        if: >-
+          github.repository == 'CEmM2/Logic-Loom' &&
+          (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    # Public repository only; tags and manual runs only; never a pre-release tag.
+    if: >-
+      github.repository == 'CEmM2/Logic-Loom' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.ref_type == 'tag' &&
+        !contains(github.ref_name, '-alpha') &&
+        !contains(github.ref_name, '-beta') &&
+        !contains(github.ref_name, '-rc')))
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

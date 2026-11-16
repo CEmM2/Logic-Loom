@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "default",
+  "family": "akms",
+  "slot": "akms.node_gen_skill",
+  "name": "Default node-gen skill",
+  "description": "Stock SKILL.md for AKMS node generation.",
+  "source": "bundled",
+  "based_on": null,
+  "filename": ".claude/skills/node-gen/SKILL.md",
+  "content_type": "markdown",
+  "content_hash": "",
+  "content": "---\nname: node-gen\n---\n\n# node-gen SKILL placeholder\n\nBundled default; replaced at runtime by user overlays.\n"
+}

@@ -1,0 +1,119 @@
+site_name: Logic-Loom
+site_description: >-
+  Desktop app for research workflows: zotero-summarizer pipeline, AKMS knowledge
+  graph, paper discovery, MechDSL compilation and agent-memory views.
+site_url: "https://cemm2.github.io/Logic-Loom/"
+repo_url: "https://github.com/CEmM2/Logic-Loom"
+repo_name: CEmM2/Logic-Loom
+edit_uri: edit/master/docs/
+
+docs_dir: docs
+site_dir: site
+use_directory_urls: false
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.tabs.link
+    - toc.follow
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  # The Changelog page includes the root CHANGELOG.md, so it is never copied by hand.
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/CEmM2/Logic-Loom
+      name: Logic-Loom on GitHub
+
+copyright: !ENV [LOGIC_LOOM_DOCS_COPYRIGHT, "Logic-Loom documentation · built from the development branch"]
+
+hooks:
+  - scripts/mkdocs_hooks.py
+
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Install:
+      - Download and install: install/index.md
+      - First run: install/first-run.md
+      - Configuration: install/configuration.md
+      - LLM providers: install/llm-providers.md
+  - User guide:
+      - zsum: guide/zsum.md
+      - AKMS: guide/akms.md
+      - Assistant: guide/assistant.md
+      - MechDSL: guide/mechdsl.md
+      - Failure Memory: guide/failure-memory.md
+      - Records: guide/records.md
+      - Known issues: known-issues.md
+  - Developers:
+      - Developer setup: developers/index.md
+      - Architecture: developers/architecture.md
+      - Failure Memory architecture: developers/failure-memory-architecture.md
+      - Build from source: developers/build-from-source.md
+      - Releasing: developers/releasing.md
+  - Reference:
+      - Configuration: reference/configuration.md
+      - HTTP API: reference/http-api.md
+  - Changelog: changelog.md
+  - Release notes:
+      - All releases: release_notes/index.md
+      - v0.3.0: release_notes/v0.3.0.md
+      - v0.2.1: release_notes/v0.2.1.md
+      - v0.2.0: release_notes/v0.2.0.md
+      - v0.1.0-alpha.7: release_notes/v0.1.0-alpha.7.md
+      - v0.1.0-alpha.6: release_notes/v0.1.0-alpha.6.md
+      - v0.1.0-alpha.5: release_notes/v0.1.0-alpha.5.md
+      - v0.1.0-alpha.4: release_notes/v0.1.0-alpha.4.md
+      - v0.1.0-alpha.3: release_notes/v0.1.0-alpha.3.md
+      - v0.1.0-alpha.2: release_notes/v0.1.0-alpha.2.md

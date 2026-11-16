@@ -1,0 +1,44 @@
+[project]
+name = "logic-loom"
+version = "0.3.0"
+description = "Unified desktop app for zotero-summarizer pipeline, with optional AKMS integration."
+requires-python = ">=3.12,<3.13"
+readme = "README.md"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+# failure-memory adoption. Ordinary project adoption only — no product
+# integration. `uv sync --extra failure-memory` installs the `failure-memory` CLI
+# used for recording/validating/compiling `.failure-memory/`, plus pytest to run
+# tests/failure_memory/ (the permanent regression guard for the round-trip:
+# record a real lesson -> compile -> build the real AKMS graph -> resolve_provider
+# must return it, not raise). `akms[failure-memory]` is the published AKMS
+# package's own extra: it pulls `akms-failure-memory` at the matching version
+# from PyPI, and `uv.lock` records the exact build.
+failure-memory = ["akms[failure-memory]>=0.4.0,<0.5", "pytest>=9.0.2"]
+
+[dependency-groups]
+# The docs site (mkdocs.yml). `uv sync --group docs`; see docs/developers/index.md.
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.7,<10",
+]
+
+[tool.pytest.ini_options]
+# Root-level tests only (tests/failure_memory/) — services/logic_loom_api has
+# its own [tool.pytest.ini_options] and is unaffected by this. Requires
+# `uv sync --extra failure-memory`.
+markers = [
+    "integration: cross-module/integration tests against a real AKMS build",
+]
+
+[tool.uv.workspace]
+members = ["services/logic_loom_api"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# This root project is a workspace placeholder; no source to package.
+bypass-selection = true

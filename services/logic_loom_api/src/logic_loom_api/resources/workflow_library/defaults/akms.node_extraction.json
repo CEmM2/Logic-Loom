@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "akms.node_extraction",
+  "name": "AKMS Node Extraction",
+  "category": "AKMS",
+  "description": "Generate YAML/Markdown AKMS nodes from a source batch using Claude with NotebookLM grounding.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id"],
+  "output_format": "yaml",
+  "default_output_subdir": "AKMS/Nodes",
+  "prompt_slots": {
+    "skill": "akms.node_gen_skill",
+    "command": "akms.node_gen_command",
+    "digest_refiner": "akms.digest_refiner_agent"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": []
+  }
+}

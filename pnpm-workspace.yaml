@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+allowBuilds:
+  esbuild: true
+  # macos-alias and fs-xattr are pulled in by `appdmg` (used only by the
+  # logic-loom:build:dmg:macos script). They are native macOS-only modules
+  # whose `node-gyp rebuild` postinstall fails on Linux/Windows runners.
+  # Explicit `false` opts out of pnpm 11's "approve-builds" prompt and
+  # tells pnpm to skip the build silently on every platform. macOS DMG
+  # builders rebuild on-demand with `pnpm rebuild macos-alias fs-xattr`.
+  fs-xattr: false
+  macos-alias: false
+ignoredBuiltDependencies:
+  - fs-xattr
+  - macos-alias
+onlyBuiltDependencies:
+  - esbuild

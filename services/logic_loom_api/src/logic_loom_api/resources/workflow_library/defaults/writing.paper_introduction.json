@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "writing.paper_introduction",
+  "name": "Draft paper introduction",
+  "category": "Paper Writing",
+  "description": "Use a batch and NotebookLM grounding to draft a technical introduction.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "research_question", "target_journal"],
+  "output_format": "markdown",
+  "default_output_subdir": "Writing/Introductions",
+  "prompt_slots": {
+    "main": "workflow.paper_introduction.main"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Motivation", "Gap", "Contribution"]
+  }
+}

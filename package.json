@@ -1,0 +1,46 @@
+{
+  "name": "logic-loom",
+  "version": "0.3.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "logic-loom:dev": "pnpm --filter logic-loom-desktop tauri dev",
+    "sync:akms-assets": "uv run --package logic-loom-api --extra akms python scripts/sync_akms_claude_assets.py",
+    "sync:zsum-prompts": "uv run python scripts/sync_zsum_prompts.py",
+    "sync:resources": "pnpm sync:akms-assets && pnpm sync:zsum-prompts",
+    "sidecar:build:macos": "pnpm sync:zsum-prompts && bash scripts/build_sidecar_macos.sh",
+    "sidecar:build:linux": "pnpm sync:zsum-prompts && bash scripts/build_sidecar_linux.sh",
+    "sidecar:build:windows": "pnpm sync:zsum-prompts && powershell -ExecutionPolicy Bypass -File scripts/build_sidecar_windows.ps1",
+    "logic-loom:build": "node scripts/logic_loom_build.mjs",
+    "logic-loom:build:tauri:app": "pnpm --filter logic-loom-desktop tauri build --bundles app",
+    "logic-loom:build:tauri": "pnpm --filter logic-loom-desktop tauri build",
+    "logic-loom:build:dmg:macos": "node scripts/build_dmg_macos.mjs",
+    "logic-loom:package:macos": "pnpm sidecar:build:macos && pnpm logic-loom:build:tauri:app && pnpm logic-loom:build:dmg:macos",
+    "logic-loom:promote:macos": "bash scripts/promote_macos_release.sh",
+    "logic-loom:package:linux": "pnpm sidecar:build:linux && pnpm logic-loom:build:tauri",
+    "logic-loom:package:windows": "pnpm sidecar:build:windows && pnpm logic-loom:build:tauri",
+    "fe:dev": "pnpm --filter logic-loom-desktop dev",
+    "fe:test": "pnpm --filter logic-loom-desktop test",
+    "fe:gen:types": "pnpm --filter logic-loom-desktop gen:types",
+    "docs:check": "uv run python scripts/check_docs.py",
+    "docs:build": "uv run python scripts/gen_docs_reference.py && uv run mkdocs build --strict",
+    "docs:serve": "uv run mkdocs serve"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@11.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "ignoredBuiltDependencies": [
+      "fs-xattr",
+      "macos-alias"
+    ]
+  },
+  "devDependencies": {
+    "appdmg": "^0.6.6",
+    "node-gyp": "^12.3.0"
+  }
+}

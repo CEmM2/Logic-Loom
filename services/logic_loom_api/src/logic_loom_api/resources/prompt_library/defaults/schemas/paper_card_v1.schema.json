@@ -1,0 +1,38 @@
+{
+  "title": "PaperCard",
+  "description": "Structured per-paper summary card (zsum cards stage). NOTE: zsum currently hardcodes this schema in zotero-summarizer/src/zsum/cards.py — editing this file affects what the UI shows but does NOT change what zsum actually requests from the LLM at runtime. Wiring the zsum CLI to honor an external schema is a planned follow-up.",
+  "x-logicloom-family": "zsum",
+  "type": "object",
+  "properties": {
+    "problem": {
+      "type": "string",
+      "description": "1-3 sentences describing the research question, gap, or motivation"
+    },
+    "methods": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Each entry is one concise sentence describing a method or technique"
+    },
+    "key_findings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Each entry is one concise sentence stating a result or conclusion"
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Each entry is one concise sentence noting a limitation or assumption"
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "3-8 specific technical terms"
+    },
+    "paper_type": {
+      "type": "string",
+      "enum": ["research", "review", "survey", "meta-analysis", "tutorial"]
+    }
+  },
+  "required": ["problem", "methods", "key_findings", "limitations", "keywords", "paper_type"],
+  "additionalProperties": false
+}

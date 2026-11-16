@@ -1,0 +1,95 @@
+name: CI
+
+# The always-on gate: repository hygiene, the backend suite and the frontend
+# suite on Linux. The cross-platform matrix lives in akms-bundle-e2e.yml and
+# runs when the bundle surface changes.
+
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Versions, public tree, docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Every version field agrees
+        run: python scripts/check_versions.py
+      - name: Public-tree audit (full on the public repository)
+        # A private development checkout legitimately carries its working
+        # folders, so only the secret and local-path scan applies there.
+        shell: bash
+        run: |
+          if [ "${{ github.event.repository.private }}" = "false" ]; then
+            python scripts/check_public_tree.py
+          else
+            python scripts/check_public_tree.py --security-only
+          fi
+      - name: Third-party notices match the lockfiles
+        # A warning, not a failure: Dependabot lockfile bumps would otherwise all
+        # fail. scripts/release.sh and release.yml refuse a tag while it is stale.
+        shell: bash
+        run: |
+          if ! python scripts/gen_third_party_notices.py --check; then
+            echo "::warning file=THIRD_PARTY_NOTICES.md::Stale. Run: uv run python scripts/gen_third_party_notices.py"
+          fi
+      - name: Docs build (links, anchors, HTML well-formedness)
+        run: uv run python scripts/check_docs.py
+
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Sync the locked environment with every extra
+        run: uv sync --locked --all-packages --all-extras
+      - name: Sync agent assets and prompts from the installed packages
+        run: |
+          uv run python scripts/sync_akms_claude_assets.py
+          uv run python scripts/sync_zsum_prompts.py
+      - name: Backend suite
+        run: uv run pytest services/logic_loom_api/tests -q
+      - name: Repository-level suite
+        run: uv run pytest tests -q
+
+  frontend:
+    name: Frontend tests and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: pnpm/action-setup@v4
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: Vitest
+        run: pnpm --filter logic-loom-desktop test
+      - name: Type-check and build
+        run: pnpm --filter logic-loom-desktop build

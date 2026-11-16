@@ -1,0 +1,192 @@
+# Curated Claude-asset manifest for Logic-Loom packaging
+#
+# This file is the single source of truth for which AKMS Claude assets ship
+# in the bundled sidecar. The sync script (`scripts/sync_akms_claude_assets.py`)
+# reads this manifest and copies each declared file into
+# `services/logic_loom_api/src/logic_loom_api/resources/akms_claude/`, which
+# is then force-included in the wheel (see
+# `services/logic_loom_api/pyproject.toml [tool.hatch.build.targets.wheel.force-include]`).
+#
+# Security invariants (do NOT relax):
+#   * Whitelist over blocklist — every file is listed explicitly. No globs.
+#   * Nodes_Vault/, generated nodes, credentials, session state, and any
+#     personal vault material must NEVER appear here.
+#   * Missing source file at sync time is a HARD FAILURE (SystemExit) — we
+#     prefer breaking the build to shipping a half-stripped skill.
+#
+# Sources:
+#   * `pkg:akms/_bundled/...` reads from the installed `akms` wheel, which ships
+#     its agent assets as package data. What Logic-Loom bundles therefore always
+#     matches the AKMS version in the build environment. Needs the `akms` extra.
+#   * A plain path is relative to the repository root.
+#
+# Layout:
+#   [skills.node_gen]            — node-gen SKILL.md + references/ + scripts/
+#   [agents.digest_refiner]      — digest-refiner agent
+#   [agents.akms_spec_reviewer]  — akms-spec-reviewer agent
+#   [commands.node_gen_invoker]  — node-gen-invoker slash command
+#   [root_scripts.node_gen_scripts]
+#                                — node-gen conversion scripts re-exported
+#                                  at the resources/akms_claude/scripts/ root
+#                                  so the asset manager can invoke them
+#                                  without traversing the .claude/ tree.
+#   [skills.akms]                — core AKMS bootstrap/setup/authoring skill.
+#   [skills.deepwiki_nodes]      — deepwiki-nodes skill.
+#   [skills.akms_spec_check]     — akms-spec-check skill.
+#   [hooks.guards]               — the two PreToolUse guard scripts + README.
+#   [docs.akms_spec]             — conformance invariants page the
+#                                  akms-spec-check skill audits against. No
+#                                  wheel ships it, so the source is the in-tree
+#                                  copy under packaging/akms_assets/.
+#
+# Note: nothing in this manifest is a "seed" that gets extracted to
+# the user workspace at runtime. The asset manager reads these as
+# read-only resources via importlib.resources. A future change may add seed
+# prompts under different sections — if/when that happens, add an explicit
+# `seed = true` flag and update the sync script to honor it.
+#
+# The node-gen skill and its slash command are materialised under `.claude/`
+# (the layout the runtime materialiser and the agent CLIs expect), while the
+# wheel's copies name their own path as `skills/node-gen/`. The `replace` rules
+# below point that self-reference at the materialised location.
+
+[skills.node_gen]
+source = "pkg:akms/_bundled/skills/node-gen"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/.claude/skills/node-gen"
+files = [
+  "SKILL.md",
+  "references/schema_compliance.md",
+  "references/akms_node_template.md",
+  "references/query_strategies.md",
+  "references/yaml_safety.md",
+  "scripts/akms_node_convert.py",
+  "scripts/akms_node_clean.py",
+]
+replace = [
+  { find = '(?<![\w./-])skills/node-gen/', replace = '.claude/skills/node-gen/' },
+]
+
+[agents.digest_refiner]
+source = "pkg:akms/_bundled/agents"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/.claude/agents"
+files = [
+  "digest-refiner.md",
+]
+
+[agents.akms_spec_reviewer]
+source = "pkg:akms/_bundled/agents"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/.claude/agents"
+files = [
+  "akms-spec-reviewer.md",
+]
+
+[commands.node_gen_invoker]
+source = "pkg:akms/_bundled/commands"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/.claude/commands"
+files = [
+  "node-gen-invoker.md",
+]
+replace = [
+  { find = '(?<![\w./-])skills/node-gen/', replace = '.claude/skills/node-gen/' },
+]
+
+[root_scripts.node_gen_scripts]
+source = "pkg:akms/_bundled/skills/node-gen/scripts"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/scripts"
+files = [
+  "akms_node_convert.py",
+  "akms_node_clean.py",
+]
+
+[skills.akms]
+source = "pkg:akms/_bundled/skills/akms"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/skills/akms"
+files = [
+  "SKILL.md",
+  "references/mcp_setup.md",
+  "references/node_authoring.md",
+  "references/workflows.md",
+  "scripts/akms_bootstrap.sh",
+  "scripts/check_setup.py",
+  "scripts/new_node.py",
+]
+
+[skills.deepwiki_nodes]
+source = "pkg:akms/_bundled/skills/deepwiki-nodes"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/skills/deepwiki-nodes"
+files = [
+  "SKILL.md",
+  "references/extraction_queries.md",
+  "references/query_file_format.md",
+  "references/query_file_template.md",
+  "scripts/deepwiki_query.py",
+  "scripts/run_queries.sh",
+]
+
+[skills.akms_spec_check]
+source = "pkg:akms/_bundled/skills/akms-spec-check"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/skills/akms-spec-check"
+files = [
+  "SKILL.md",
+]
+
+[hooks.guards]
+source = "pkg:akms/_bundled/hooks"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/hooks"
+files = [
+  "README.md",
+  "akms-guard-frozen-schema.sh",
+  "akms-guard-global-vault.sh",
+]
+
+[docs.akms_spec]
+source = "packaging/akms_assets/docs/reference/akms"
+target = "services/logic_loom_api/src/logic_loom_api/resources/akms_claude/docs/reference/akms"
+files = [
+  "conformance-invariants.md",
+]
+
+# Prompt-library bundled defaults.
+#
+# These ship under `resources/prompt_library/defaults/` (NOT under
+# `resources/akms_claude/`) because the prompt store reads them via
+# `importlib.resources.files("logic_loom_api.resources.prompt_library.defaults")`
+# — see `prompts/store.py::BUNDLED_RESOURCE_PACKAGE`.
+#
+# `source` points at the in-repo authored copies — prompt defaults are
+# authored directly in-tree rather than taken from an AKMS package. The
+# sync script's idempotent file copy is a no-op when source == target on
+# disk, so listing them here documents the surface without re-copying.
+# Adding new defaults: append a file path; no globs.
+[prompt_library_defaults.zsum]
+source = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/zsum"
+target = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/zsum"
+files = [
+  "paper_card/default.logicloom.json",
+]
+
+[prompt_library_defaults.akms]
+source = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/akms"
+target = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/akms"
+files = [
+  "node_gen_skill/default.logicloom.json",
+]
+
+# Assistant family. Markdown defaults follow the
+# "defaults/assistant/<slot>/default.md" filesystem convention.
+# As with the zsum + akms sections, source == target
+# (authored in-tree, not taken from an AKMS package) so this
+# section is a packaging-surface declaration: it guarantees the six
+# markdown defaults are present at sync time and documents that they
+# ship in the wheel.
+[prompt_library_defaults.assistant]
+source = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/assistant"
+target = "services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/assistant"
+files = [
+  "literature_survey/default.md",
+  "paper_introduction/default.md",
+  "related_work/default.md",
+  "proposal_ideas/default.md",
+  "method_comparison/default.md",
+  "annotated_bibliography/default.md",
+]

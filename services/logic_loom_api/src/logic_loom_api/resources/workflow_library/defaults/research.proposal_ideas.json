@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "research.proposal_ideas",
+  "name": "Proposal Ideas",
+  "category": "Proposal Writing",
+  "description": "Extract possible research directions, specific aims, and risks/mitigations from a batch.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "scope"],
+  "output_format": "markdown",
+  "default_output_subdir": "Proposals/Ideas",
+  "prompt_slots": {
+    "main": "workflow.proposal_ideas.main"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Directions", "Specific Aims", "Risks"]
+  }
+}

@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+dist/
+*.tsbuildinfo
+# npm lock — project uses pnpm
+package-lock.json
+
+# Tauri / Rust
+target/
+Cargo.lock.bak
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# Logic-Loom runtime
+.logic-loom/
+*.log
+
+# Release packaging build outputs
+.venv-sidecar-build/
+.pyinstaller-build/
+.pyinstaller-dist/
+.sidecar-build-requirements.txt
+logic-loom-api.spec
+apps/desktop/src-tauri/binaries/*
+!apps/desktop/src-tauri/binaries/.gitkeep
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Generated
+apps/desktop/src/api/openapi.ts
+
+# Synced AKMS Claude assets (produced by scripts/sync_akms_claude_assets.py at
+# sidecar build time from the installed akms package; see packaging/akms_claude_assets.toml).
+# The manifest + source repo are authoritative; this tree is regenerated.
+services/logic_loom_api/src/logic_loom_api/resources/akms_claude/
+
+# Synced established nodes (produced by scripts/sync_akms_nodes.py at
+# sidecar build time from verified_nodes/; see PROVENANCE.toml).
+# verified_nodes/ is authoritative; this tree is regenerated at build time.
+services/logic_loom_api/src/logic_loom_api/resources/akms_nodes/
+
+# Claude Code harness async-subagent worktrees (per-agent isolated copies).
+.claude/worktrees/
+.gitnexus
+
+# Orchestra local tool state (session ledger + scratch diff). Machine-local and
+# rewritten on every session, so it left the tree permanently dirty.
+/.orchestra/
+
+# MkDocs output (mkdocs build)
+/site/

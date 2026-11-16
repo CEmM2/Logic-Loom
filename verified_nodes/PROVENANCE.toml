@@ -1,0 +1,52 @@
+# Ship-provenance manifest for the curated established node library.
+#
+# The AKMS v2 node frontmatter schema (GlobalNodeFrontmatter) forbids extra
+# top-level keys (model_config extra="forbid"), so ship-provenance CANNOT live
+# in the node frontmatter. It lives here instead, keyed by the node's `id`.
+#
+# Contract: every node .md under verified_nodes/ MUST have a matching table
+# below whose key equals the node's frontmatter `id`. Required keys per entry:
+#   verified_by  — who reviewed/approved the node (human handle or "human-expert")
+#   verified_at  — ISO-8601 date (YYYY-MM-DD) of last review/approval
+#   version      — content/schema version string (semver or date); bump on
+#                  material content changes
+#   source_ref   — human-readable citation for the content. NOTE: the node's
+#                  own AKMS `source` field is the enum (human/agent/hybrid/
+#                  generated); this `source_ref` is the free-text provenance.
+#
+# P3-2 (sync) and P3-3 (guard) consume the node frontmatter for the ship gate
+# (status: established); this manifest travels alongside for provenance/version
+# surfacing (P4-2) and promotion stamping (P5-1).
+#
+# Fixture content is a clearly-labelled placeholder (TBD-3); the provenance
+# below is illustrative placeholder metadata for those fixtures.
+
+[elastic-isotropic]
+verified_by = "human-expert"
+verified_at = "2026-07-01"
+version = "1.0"
+source_ref = "Timoshenko & Goodier (1951), Theory of Elasticity, 3rd ed.; Belytschko et al. (2014), Nonlinear Finite Elements, Ch. 5."
+
+[j2-plasticity]
+verified_by = "human-expert"
+verified_at = "2026-07-01"
+version = "1.0"
+source_ref = "Simo & Hughes (1998), Computational Inelasticity, Ch. 1-3; de Souza Neto et al. (2008), Computational Methods for Plasticity, Ch. 7."
+
+[continuum-kinematics]
+verified_by = "human-expert"
+verified_at = "2026-07-01"
+version = "1.0"
+source_ref = "Holzapfel (2000), Nonlinear Solid Mechanics, Ch. 2; Bonet & Wood (2008), Nonlinear Continuum Mechanics for FEM, Ch. 3."
+
+[finite-differences-basics]
+verified_by = "human-expert"
+verified_at = "2026-07-01"
+version = "1.0"
+source_ref = "LeVeque (2007), Finite Difference Methods for ODEs and PDEs, Ch. 1; Strikwerda (2004), Finite Difference Schemes and PDEs, Ch. 1."
+
+[newton-raphson]
+verified_by = "human-expert"
+verified_at = "2026-07-01"
+version = "1.0"
+source_ref = "Crisfield (1991), Non-linear Finite Element Analysis, Vol. 1, Ch. 2; Nocedal & Wright (2006), Numerical Optimization, Ch. 11."

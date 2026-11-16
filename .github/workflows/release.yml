@@ -1,0 +1,101 @@
+name: Release (source)
+
+# Two-repo release model:
+#   * THIS repo (the Logic-Loom source repository) publishes a
+#     SOURCE-ONLY GitHub Release on a `v*` tag push — just the source
+#     archives (`.tar.gz` + `.zip`). It does NOT build binaries.
+#   * The public release repo (CEmM2/Logic-Loom-releases) owns the heavy
+#     cross-platform binary builds: its `build-binaries.yml` triggers on the
+#     same `v*` tag pushed there, checks out THIS repo's source at the tag,
+#     builds macOS/Linux/Windows bundles, and attaches them to the
+#     CEmM2 Release. See that repo's workflow + `docs/developers/releasing.md`.
+#
+# To cut a release:
+#   1. Tag master here and push the tag  → this workflow makes the source release.
+#   2. Push the same tag to CEmM2        → that repo builds + publishes binaries.
+#   (`scripts/release.sh` orchestrates step 2 / the tag push to CEmM2.)
+#
+# Out of scope (deliberate): macOS notarization, Windows authenticode signing
+# — both belong to the binary build in CEmM2/Logic-Loom-releases.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name for the source archives (e.g. v0.1.0-alpha.1). Required for manual dispatch."
+        required: true
+        default: "v0.0.0-manual"
+
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # Source-only release. Produces deterministic `git archive` tarball + zip of
+  # the tagged source and attaches them to a GitHub Release. GitHub's own
+  # auto-generated "Source code" archives also appear on the release; these
+  # named archives are the canonical, referenceable ones.
+  # ─────────────────────────────────────────────────────────────────────────
+
+  source-release:
+    name: Source-only Release
+    runs-on: ubuntu-latest
+    # Skip on workflow_dispatch (no real tag); manual runs are for inspection.
+    if: github.event_name == 'push'
+    permissions:
+      contents: write  # required to create the GitHub Release
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Version fields and changelog match the tag
+        shell: bash
+        run: python3 scripts/check_versions.py --tag "${GITHUB_REF#refs/tags/}"
+
+      - name: Third-party notices match the lockfiles
+        run: python3 scripts/gen_third_party_notices.py --check
+
+      - name: Build source archives
+        id: archives
+        shell: bash
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          # Strip a leading 'v' for the human-facing version in filenames.
+          ver="${tag#v}"
+          mkdir -p dist
+          prefix="Logic-Loom-${ver}/"
+          git archive --format=tar.gz --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.tar.gz" HEAD
+          git archive --format=zip   --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.zip"    HEAD
+          ( cd dist && { command -v sha256sum >/dev/null 2>&1 && sha256sum * || shasum -a 256 *; } > SHA256SUMS )
+          ls -lh dist/
+          cat dist/SHA256SUMS
+
+      - name: Locate release notes
+        id: notes
+        shell: bash
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          notes_file="docs/release_notes/${tag}.md"
+          if [ -f "$notes_file" ]; then
+            echo "found=$notes_file" >> "$GITHUB_OUTPUT"
+            echo "Release notes located at $notes_file"
+          else
+            echo "found=" >> "$GITHUB_OUTPUT"
+            echo "::warning::No release notes file at $notes_file — falling back to generic body."
+          fi
+
+      - name: Create source-only GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body_path: ${{ steps.notes.outputs.found }}
+          fail_on_unmatched_files: true
+          # Mark `*-alpha`, `*-beta`, `*-rc` as prereleases automatically.
+          prerelease: ${{ contains(github.ref, '-alpha') || contains(github.ref, '-beta') || contains(github.ref, '-rc') }}
+          # Uses GITHUB_TOKEN from `permissions` above — no PAT needed for a
+          # release on this same repo.

@@ -1,0 +1,48 @@
+{
+  "schema_version": "v1",
+  "source_hash": "sha256:46e78324619550d7a12f47c4bb8cf83dc62286dbc07bd373b1e4515bd3b2490d",
+  "by_path": {
+    "services/logic_loom_api/src/logic_loom_api/services/failure_memory_jobs.py": [
+      {
+        "node_id": "logic-loom-failure-l001",
+        "reason": "Exact repository path declared by location.file",
+        "provenance": {
+          "adapter_version": "failure-memory-to-akms-task-route/v1",
+          "canonical_contract_version": "failure-route-index/v1",
+          "compiler_version": "failure-memory-compiler/v1",
+          "source_schema_version": 1,
+          "source_sha256": "46e78324619550d7a12f47c4bb8cf83dc62286dbc07bd373b1e4515bd3b2490d",
+          "match_semantics": "exact-repository-relative-path",
+          "reasons": [
+            {
+              "source_field": "location.file",
+              "matched_text": "services/logic_loom_api/src/logic_loom_api/services/failure_memory_jobs.py"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "by_symbol": {
+    "services/logic_loom_api/src/logic_loom_api/services/failure_memory_jobs.py::JobRegistry": [
+      {
+        "node_id": "logic-loom-failure-l001",
+        "reason": "Optional exact symbol route declared by location.symbol",
+        "provenance": {
+          "adapter_version": "failure-memory-to-akms-task-route/v1",
+          "canonical_contract_version": "failure-route-index/v1",
+          "compiler_version": "failure-memory-compiler/v1",
+          "source_schema_version": 1,
+          "source_sha256": "46e78324619550d7a12f47c4bb8cf83dc62286dbc07bd373b1e4515bd3b2490d",
+          "match_semantics": "exact-repository-relative-path",
+          "reasons": [
+            {
+              "source_field": "location.symbol",
+              "matched_text": "JobRegistry"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

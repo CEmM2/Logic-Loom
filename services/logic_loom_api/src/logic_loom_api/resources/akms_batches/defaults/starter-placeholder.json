@@ -1,0 +1,28 @@
+{
+  "id": "starter-placeholder",
+  "title": "Starter (placeholder)",
+  "description": "Placeholder starter batch.",
+  "round": null,
+  "round_title": "",
+  "round_theme": "",
+  "status": "active",
+  "source": "user",
+  "origin": "starter",
+  "created_at": "2026-07-01T00:00:00+00:00",
+  "updated_at": "2026-07-01T00:00:00+00:00",
+  "papers": [],
+  "nodes": [],
+  "notebook_id": null,
+  "zotsums_text": "",
+  "sources_text": "",
+  "notes": "",
+  "default_workflow_id": null,
+  "prompt_profile_id": null,
+  "prompt_overrides": {},
+  "generation": {
+    "default_output_dir": null,
+    "nlm_timeout": 540.0,
+    "max_retries": 2,
+    "output_format": "yaml"
+  }
+}

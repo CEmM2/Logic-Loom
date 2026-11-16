@@ -1,0 +1,77 @@
+name: failure-memory
+
+# Ordinary-adoption CI for the akms-failure-memory sidecar. No product
+# integration here — this only guards `.failure-memory/` config/registry
+# shape, the committed generated artifacts (routes.json + any compiled node
+# mirrors), and the package's own graph-visibility contract against drift.
+# See docs/developers/index.md ("Failure Memory lessons") and
+# dev/docs/failure-memory.md for the contributor-facing recording workflow.
+#
+# `akms` and `akms-failure-memory` are installed from PyPI (0.4.x, exact build in
+# uv.lock) via the `failure-memory` extra in pyproject.toml. No token and no git
+# credentials are involved anywhere in this job.
+#
+# Regression guard: the
+# package's `failure-memory init` previously put `local_nodes` OUTSIDE
+# `akms_repo_root`, so compiled nodes never reached the AKMS graph and
+# `resolve_provider` raised for every route — invisible with an empty
+# registry, which is exactly what a plain `validate`/`compile`/`check` run
+# exercises. `tests/failure_memory/test_provider_roundtrip.py` closes that gap: it
+# records a real lesson, compiles, builds the real AKMS graph, and calls the
+# real provider against a throwaway temp project, so this regresses loudly if
+# the layout contract breaks again. `test_consumer_contract_pack.py` asserts
+# Logic-Loom's config against the AKMS shared consumer-contract pack
+# (fetched fresh via git sparse-checkout from the PUBLIC CEmM2/AKMS repository
+# at the commit of the release tag matching the PyPI version, v0.4.0 — the pack
+# lives only under tests/fixtures/ in the AKMS git tree, never in the
+# installed wheel, so it cannot be reached any other way without vendoring a
+# copy, which we deliberately do not do). See the comments next to
+# PINNED_AKMS_COMMIT in the test files.
+#
+# The project uses `mirror_provider = "builtin"` (AKMS 0.4 ships the mirror
+# exporter that used to be the external repo2md tool), so no repo2md checkout
+# is involved anywhere in this job. A live `failure-memory resolve` CLI smoke
+# test is still not run here; the pytest suite above proves the underlying
+# resolve_provider Python API end to end.
+
+on:
+  pull_request:
+    branches: [master, main]
+    paths:
+      - ".failure-memory/**"
+      - "tests/failure_memory/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/failure-memory.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  failure-memory-gate:
+    name: validate + check + provider round-trip + pack conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Sync deps (failure-memory extra)
+        run: uv sync --extra failure-memory
+      - name: failure-memory validate
+        run: uv run failure-memory validate --config .failure-memory/config.toml
+      - name: failure-memory check (committed generated artifacts must be clean)
+        # `check` needs a global vault path, but this project's lessons link to
+        # no global node, so an empty directory gives the same result as a real
+        # vault and keeps the job independent of any vault checkout.
+        run: |
+          mkdir -p "$RUNNER_TEMP/empty-global-vault"
+          uv run failure-memory check --config .failure-memory/config.toml \
+            --global-vault "$RUNNER_TEMP/empty-global-vault"
+      - name: Provider round-trip + consumer-contract pack conformance (pytest)
+        run: uv run pytest tests/failure_memory -v

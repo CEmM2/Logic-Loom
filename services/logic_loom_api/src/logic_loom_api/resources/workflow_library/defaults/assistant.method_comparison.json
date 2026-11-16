@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "assistant.method_comparison",
+  "name": "Method comparison (Assistant)",
+  "category": "Analysis",
+  "description": "Compare methods across the batch's papers along axes the user selects (accuracy, cost, scalability, assumptions).",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "axes"],
+  "output_format": "markdown",
+  "default_output_subdir": "Assistant/MethodComparisons",
+  "prompt_slots": {
+    "main": "assistant.method_comparison"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Axes", "Comparison Table", "Discussion"]
+  }
+}

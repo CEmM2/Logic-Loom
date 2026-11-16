@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "_field_spec": {
+    "id": "Stable append-only lesson identifier.",
+    "location": "Repository location for the failure.",
+    "found_by": "Discovery mechanism and trigger.",
+    "related": "Related lesson identifiers."
+  },
+  "lessons": [
+    {
+      "id": "L001",
+      "date_found": "2026-08-17",
+      "date_found_precision": "exact",
+      "date_fixed": "2026-08-17",
+      "date_fixed_precision": "approximate",
+      "location": {
+        "area": "backend",
+        "package": "logic_loom_api",
+        "module": "services.failure_memory_jobs",
+        "file": "services/logic_loom_api/src/logic_loom_api/services/failure_memory_jobs.py",
+        "symbol": "JobRegistry",
+        "line_hint": "JobRegistry ThreadPoolExecutor worker threads block interpreter shutdown"
+      },
+      "found_by": {
+        "type": "ci",
+        "trigger": "backend E2E workflow, windows-latest runner, pull_request event; exit code 1 recorded after the full test run reported success"
+      },
+      "symptom": "Backend E2E on windows-latest exits 1 even though all 819 tests pass. pytest's own summary is fully green; the failure only shows up as the process's final exit code, with a KeyboardInterrupt raised inside threading.py:355, which is Condition.wait().",
+      "root_cause": "JobRegistry creates a ThreadPoolExecutor to run failure-memory operator-mode jobs in the background. Its worker threads are not daemons, so they park in Condition.wait() waiting for the next task. concurrent.futures registers its own atexit hook that joins every live worker thread at interpreter shutdown, and non-daemon threads keep the process alive until that join returns. On a full Windows suite run this was measured directly: 11 such worker threads are still alive when the test session ends, so the interpreter cannot exit cleanly even though every test already passed.",
+      "fix": "Not resolved as of v0.2.0; shipped as a known issue. Two changes landed in this release and neither one fixed it, which matters more than the fact that a fix is still pending: (1) making ThreadPoolExecutor construction lazy (only created on first job submission) — this only helps a JobRegistry that never submits a job, and the real backend E2E suite submits jobs, so it does not touch the actual failure; (2) registering an atexit hook that calls executor.shutdown() for each pool — a single process that submits one job and exits does shut down cleanly in isolation, but the full Windows backend E2E run still hangs, because many JobRegistry instances are constructed across the suite (one per test/fixture) and their worker threads accumulate faster than the shutdown hooks retire them. Product behaviour is unaffected in normal use; this is a CI exit-code defect only, and the job runs solely on pull requests, so it had never run against master before this release.",
+      "prevention": "A background worker whose lifetime should not outlive its owner must either (a) run as a daemon thread, or (b) be shut down deterministically by an owner with a real lifecycle — an explicit close()/shutdown() called on every code path that constructs one, including test fixtures and teardown, not a best-effort atexit hook layered on top of a non-daemon pool. Separately: CI must treat 'all tests passed' and 'the process exited cleanly' as two different claims — a green pytest summary does not guarantee a clean process exit — and any job that only runs on pull_request should also run against the default branch, since this exact defect could otherwise ship silently because it had never once run on master.",
+      "references": {
+        "commit": "a2ac8f33d77fef3c614610fb42f6796dfebbe74f",
+        "issue": "",
+        "pr": "140",
+        "plan": ""
+      },
+      "related": []
+    }
+  ]
+}

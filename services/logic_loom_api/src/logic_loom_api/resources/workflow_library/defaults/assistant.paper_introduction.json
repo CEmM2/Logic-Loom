@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "assistant.paper_introduction",
+  "name": "Paper introduction (Assistant)",
+  "category": "Paper Writing",
+  "description": "Draft a technical introduction for a paper using an Assistant batch with NotebookLM grounding.",
+  "executor": "claude",
+  "source_mode": "notebooklm",
+  "input_slots": ["batch", "notebook_id", "research_question", "target_journal"],
+  "output_format": "markdown",
+  "default_output_subdir": "Assistant/Introductions",
+  "prompt_slots": {
+    "main": "assistant.paper_introduction"
+  },
+  "required_external_tools": ["claude", "nlm"],
+  "validation": {
+    "required_sections": ["Motivation", "Gap", "Contribution"]
+  }
+}
