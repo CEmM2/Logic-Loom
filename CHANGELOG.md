@@ -5,6 +5,19 @@
 > [documentation site](https://cemm2.github.io/Logic-Loom/); the entries below
 > summarise them.
 
+## v0.3.1
+
+Linux packages that run on current distributions. Full notes:
+[`docs/release_notes/v0.3.1.md`](./docs/release_notes/v0.3.1.md).
+
+- **Linux builds need glibc 2.35, not 2.43.** v0.3.0's AppImage and `.deb`
+  were built on the newest runner and did not start on Ubuntu 24.04 or
+  Debian 13. They are now built on Ubuntu 22.04, and the release build fails
+  if a shipped binary needs a newer glibc or the AppImage lacks its bundled
+  WebKitGTK.
+- **Docs:** Linux requirements, AppImage vs `.deb`, and running from source
+  in a browser without WebKitGTK.
+
 ## v0.3.0
 
 The first public-source release. Full notes:

@@ -60,6 +60,9 @@ xattr -dr com.apple.quarantine /Applications/Logic-Loom.app
 
 ## Linux
 
+Linux builds are x86_64 and need glibc 2.35 or newer: Ubuntu 22.04 or later, Debian 12
+or later, or another distribution of the same age. Check yours with `ldd --version`.
+
 Use the `.AppImage` or the `.deb`.
 
 ```bash
@@ -69,8 +72,23 @@ chmod +x Logic-Loom-*.AppImage
 sudo apt install ./Logic-Loom-*.deb
 ```
 
-On Ubuntu 22.04 and later, an AppImage may need `libfuse2`
-(`sudo apt install libfuse2`).
+The two differ in what they need from your system:
+
+- The **AppImage** carries its own WebKitGTK and GTK libraries, so it needs nothing from
+  your package manager except, on some systems, `libfuse2` to mount itself
+  (`sudo apt install libfuse2`, or run it with `--appimage-extract-and-run`).
+- The **`.deb`** uses your distribution's WebKitGTK (`libwebkit2gtk-4.1-0`), which `apt`
+  installs with it. If you cannot install that package, for example because your
+  package mirror is unreachable, use the AppImage.
+
+!!! warning "v0.3.0 Linux builds"
+    The v0.3.0 Linux packages were built against glibc 2.43 by mistake and do not start
+    on Ubuntu 24.04, Debian 13 or older. Use v0.3.1 or later, or
+    [run from source](../developers/index.md#run-in-a-browser-without-webkitgtk).
+
+If no release build runs on your machine, you can
+[run Logic-Loom from source in a browser](../developers/index.md#run-in-a-browser-without-webkitgtk),
+which needs neither the installer nor WebKitGTK.
 
 ## Next
 

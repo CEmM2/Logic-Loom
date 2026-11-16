@@ -10,6 +10,16 @@ release's notes on the [Releases page](https://github.com/CEmM2/Logic-Loom/relea
 - **Windows SmartScreen:** unsigned builds show a trust warning until code signing is in
   place.
 
+## Linux
+
+- **glibc 2.35 or newer** (Ubuntu 22.04, Debian 12 or later) is required by the Linux
+  packages. The v0.3.0 Linux packages needed glibc 2.43 by mistake; use v0.3.1 or later.
+- **The `.deb` needs the distribution's WebKitGTK.** If it cannot be installed, use the
+  AppImage, which bundles it, or
+  [run from source in a browser](developers/index.md#run-in-a-browser-without-webkitgtk).
+- **Blank window on some GPU drivers:** if the window opens empty, start the app with
+  `WEBKIT_DISABLE_DMABUF_RENDERER=1`.
+
 ## External tools stay external
 
 Logic-Loom does not install or sign in to Zotero, Better BibTeX, your PDFs or any LLM

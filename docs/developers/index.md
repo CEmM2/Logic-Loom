@@ -46,6 +46,29 @@ pnpm fe:dev                                   # Vite without Tauri; set VITE_LOG
 pnpm fe:gen:types                             # regenerate src/api/openapi.ts from a sidecar on :17321
 ```
 
+## Run in a browser, without WebKitGTK
+
+The desktop shell needs WebKitGTK on Linux, but the app itself is a web frontend talking
+to the sidecar over HTTP. When a release build will not start, or WebKitGTK cannot be
+installed, run the two halves yourself and use an ordinary browser. This needs Python
+3.12, uv, Node.js 20 or later and pnpm 11, but no Rust and no system libraries.
+
+```bash
+uv sync --all-packages --all-extras            # or plain `uv sync` for the core modes
+pnpm install
+
+# terminal 1: the API
+uv run logic-loom-api --port 17321
+
+# terminal 2: the frontend
+VITE_LOGIC_LOOM_API_BASE=http://127.0.0.1:17321 pnpm fe:dev
+```
+
+Then open <http://localhost:1420>. The sidecar only accepts browser requests from that
+origin, so keep the frontend on port 1420. Everything works as in the desktop app except
+the buttons that call into the desktop shell, such as the system folder picker and "Open
+folder"; type paths into those fields instead.
+
 ## Tests
 
 ```bash

@@ -10,7 +10,7 @@ AKMS batch picker is a mounted sub-app at `/api/picker` with its own schema, so
 its routes are not listed here; see the
 [AKMS batch picker HTTP API](https://cemm2.github.io/AKMS/reference/nodes-gen/batch-picker/api-reference.html).
 
-Generated from API version `0.3.0`.
+Generated from API version `0.3.1`.
 
 ## `/api/akms`
 

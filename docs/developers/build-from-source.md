@@ -29,6 +29,12 @@ pnpm 11 (`corepack enable && corepack install --global pnpm@11.0.0`) and Rust st
 
     On Ubuntu 22.04, Python 3.12 may need to come from the deadsnakes PPA.
 
+    A Linux build only runs on systems whose glibc is at least as new as the build
+    machine's. Build release packages on the oldest distribution you want to support;
+    the official builds use Ubuntu 22.04 (glibc 2.35) and check that nothing they ship
+    needs a newer glibc. A package built on a current distribution will not start on
+    older ones.
+
 === "Windows 11"
 
     Use native PowerShell, not WSL.
@@ -120,7 +126,9 @@ shasum -a 256 Logic-Loom-* > SHA256SUMS.txt
 
 ## Troubleshooting
 
-- **The AppImage does not start (Linux):** install `libfuse2`.
+- **The AppImage does not start (Linux):** install `libfuse2`. If it reports
+  ``version `GLIBC_2.xx' not found``, it was built on a newer distribution than yours;
+  see the glibc note under [Prepare the machine](#prepare-the-machine).
 - **`link.exe` or `cl` not found (Windows):** the C++ build tools are missing or the shell
   was opened before they were installed. Reboot, or build from the Native Tools prompt.
 - **The app opens but says the API did not become ready:** run the sidecar directly as
