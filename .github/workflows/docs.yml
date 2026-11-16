@@ -12,7 +12,7 @@ name: docs
 
 on:
   pull_request:
-    branches: [master]
+    branches: [master, main]
     paths:
       - "docs/**"
       - "mkdocs.yml"

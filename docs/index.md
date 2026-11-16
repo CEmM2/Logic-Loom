@@ -1,5 +1,7 @@
 # Logic-Loom
 
+![Logic-Loom gathers the scrolls from the shelves, thinks up the links that connect them, turns messy math into code and watches the agents run it.](assets/logic-loom-banner.webp){ .hero-banner }
+
 Logic-Loom is a desktop app for research workflows. It turns a Zotero library into a
 searchable Obsidian vault with [zotero-summarizer](https://github.com/CEmM2/zotero-summarizer),
 and adds optional knowledge-graph tooling from [AKMS](https://cemm2.github.io/AKMS/),

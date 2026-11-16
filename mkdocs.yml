@@ -5,7 +5,7 @@ site_description: >-
 site_url: "https://cemm2.github.io/Logic-Loom/"
 repo_url: "https://github.com/CEmM2/Logic-Loom"
 repo_name: CEmM2/Logic-Loom
-edit_uri: edit/master/docs/
+edit_uri: edit/main/docs/
 
 docs_dir: docs
 site_dir: site
@@ -14,18 +14,22 @@ use_directory_urls: false
 theme:
   name: material
   language: en
+  logo: assets/logic-loom-icon.png
+  favicon: assets/logic-loom-icon.png
+  # `custom` hands primary/accent to docs/stylesheets/logic-loom.css, which
+  # defines them per scheme. A named Material colour here would win instead.
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: teal
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: teal
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -43,6 +47,9 @@ theme:
     - search.highlight
   icon:
     repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/logic-loom.css
 
 markdown_extensions:
   - admonition
