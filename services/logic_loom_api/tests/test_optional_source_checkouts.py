@@ -85,6 +85,16 @@ class TestFirstRun:
         assert status["needs_setup"] is False
         assert status["missing_or_placeholder"] == []
 
+    def test_vault_from_env_satisfies_first_run(self, tmp_path: Path, monkeypatch) -> None:
+        """QA: LOGIC_LOOM_VAULT_PATH set, config.toml still the template."""
+        cfg = tmp_path / "config.toml"
+        cfg.write_text('vault_path = "<VAULT_PATH>"\n')
+        monkeypatch.setenv("LOGIC_LOOM_CONFIG", str(cfg))
+        monkeypatch.setenv("LOGIC_LOOM_VAULT_PATH", str(tmp_path / "vault"))
+        status = first_run_status(_load(tmp_path))
+        assert status["needs_setup"] is False
+        assert status["configured"]["vault_path"] == str(tmp_path / "vault")
+
     def test_template_placeholders_only_flag_the_vault(self, tmp_path: Path, monkeypatch) -> None:
         cfg = tmp_path / "config.toml"
         cfg.write_text(
@@ -93,6 +103,8 @@ class TestFirstRun:
             'vault_path = "<VAULT_PATH>"\n'
         )
         monkeypatch.setenv("LOGIC_LOOM_CONFIG", str(cfg))
+        # conftest pins a vault for the suite; an env vault now counts as set.
+        monkeypatch.delenv("LOGIC_LOOM_VAULT_PATH", raising=False)
         status = first_run_status(_load(tmp_path))
         assert status["missing_or_placeholder"] == ["vault_path"]
 
@@ -103,6 +115,7 @@ class TestFirstRun:
 
         cfg = tmp_path / "config.toml"
         monkeypatch.setenv("LOGIC_LOOM_CONFIG", str(cfg))
+        monkeypatch.delenv("LOGIC_LOOM_VAULT_PATH", raising=False)
         ensure_user_config_exists()
         assert cfg.exists()
         s = _load(tmp_path)

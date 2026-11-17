@@ -29,6 +29,9 @@ def vault(tmp_path: Path) -> Path:
     # Excluded dirs
     (root / ".obsidian").mkdir()
     (root / ".obsidian" / "config.json").write_text("{}")
+    (root / ".github" / "workflows").mkdir(parents=True)
+    (root / ".github" / "workflows" / "ci.yml").write_text("on: push\n")
+    (root / ".gitignore").write_text("*.tmp\n")
     return root
 
 
@@ -59,6 +62,9 @@ class TestTree:
         assert "Collections" in names
         assert "Papers" in names
         assert ".obsidian" not in names
+        # Every dot-entry is hidden, not just a fixed list (QA: .github showed).
+        assert ".github" not in names
+        assert ".gitignore" not in names
 
     def test_depth_two_loads_children(self, client: TestClient) -> None:
         r = client.get("/api/vault/tree?depth=2")

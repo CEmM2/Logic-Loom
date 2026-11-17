@@ -205,6 +205,10 @@ class TestGraphRefresh:
         assert body["error"]["code"] == "review_required"
         assert body["error"]["detail"]["issue_count"] == 1
         assert body["error"]["detail"]["ignored_issue_count"] == 0
+        # The message names the file and how to proceed, not just "review required".
+        message = body["error"]["message"]
+        assert body["error"]["detail"]["issues"][0]["relative_path"] in message
+        assert "skip_invalid_files" in message and "/api/graph/issues/ignore" in message
 
     def test_refresh_writes_only_logic_loom_cache(self, client: TestClient, graph_sources: tuple[Path, Path, Path]) -> None:
         repo, vault, cache = graph_sources

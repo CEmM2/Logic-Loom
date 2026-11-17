@@ -22,7 +22,7 @@ export function FrontmatterCard({ data }: Props) {
           {keys.map((k) => (
             <div key={k} className="contents">
               <dt className="text-muted-foreground">{k}</dt>
-              <dd className="break-all">{formatValue(data[k])}</dd>
+              <dd className="whitespace-pre-wrap break-all">{formatValue(data[k])}</dd>
             </div>
           ))}
         </dl>
@@ -31,9 +31,37 @@ export function FrontmatterCard({ data }: Props) {
   );
 }
 
-function formatValue(v: unknown): string {
-  if (v == null) return "—";
-  if (Array.isArray(v)) return v.map((x) => String(x)).join(", ");
-  if (typeof v === "object") return JSON.stringify(v);
-  return String(v);
+function isScalar(v: unknown): boolean {
+  return v == null || typeof v !== "object";
+}
+
+function scalar(v: unknown): string {
+  return v == null ? "—" : String(v);
+}
+
+/**
+ * Frontmatter values as readable text. Scalars and lists of scalars stay on
+ * one line; nested objects and lists of objects are shown YAML-style, one key
+ * per line, instead of "[object Object]".
+ */
+export function formatValue(v: unknown, indent = 0): string {
+  const pad = "  ".repeat(indent);
+  if (isScalar(v)) return scalar(v);
+  if (Array.isArray(v)) {
+    if (v.length === 0) return "[]";
+    if (v.every(isScalar)) return v.map(scalar).join(", ");
+    return v
+      .map((item) => `${pad}- ${formatValue(item, indent + 1).trimStart()}`)
+      .join("\n");
+  }
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (entries.length === 0) return "{}";
+  return entries
+    .map(([key, value]) => {
+      if (isScalar(value) || (Array.isArray(value) && value.every(isScalar))) {
+        return `${pad}${key}: ${formatValue(value)}`;
+      }
+      return `${pad}${key}:\n${formatValue(value, indent + 1)}`;
+    })
+    .join("\n");
 }

@@ -13,11 +13,11 @@ It needs only the core install and a `vault_path`.
 | --- | --- |
 | Overview | Pipeline status at a glance |
 | Pipeline | Run stages (extract, skeleton, cards, digests, publish, all, stats, clear-cache) with live log streaming |
-| Vault | Read and search the published vault, with wikilink resolution |
+| Vault | Read and search the published vault, with wikilink resolution and LaTeX math; dot-folders such as `.github` are hidden |
 | Collections | Browse the collection hierarchy with digest state and per-paper card state |
 | Prompts | Edit the prompts the pipeline uses; your edits are kept separately from the bundled defaults |
 | Runs | Inspect and rerun past pipeline runs |
-| Settings | zsum options and the zsum LLM provider override |
+| Settings | zsum options and the zsum LLM provider override. If the zsum config file doesn't exist yet, Settings offers to create a starter one |
 
 ## Extraction modes
 

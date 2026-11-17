@@ -12,6 +12,7 @@ import {
   type ConfigUpdate,
   type ZsumTestResult,
 } from "../../api/app";
+import { postConfigDoc } from "../../api/zsum";
 import { ConfigEditor } from "../../components/zsum/ConfigEditor";
 import { ZSUM_CONFIG_NAV_GROUPS } from "../../zsum/config-nav";
 
@@ -299,7 +300,7 @@ function LogicLoomSettingsPanel() {
         <NodesBlock draft={draft} update={update} />
 
         {/* ── Command (mirrors zsum-setting-block "Command") ─────────── */}
-        <CommandBlock draft={draft} update={update} />
+        <CommandBlock draft={draft} saved={data ?? null} update={update} />
 
         {/* ── Cost estimation (mirrors zsum-setting-block "Cost estimation") */}
         <CostBlock draft={draft} update={update} />
@@ -332,11 +333,14 @@ function LogicLoomSettingsPanel() {
 // ── Command block ────────────────────────────────────────────
 function CommandBlock({
   draft,
+  saved,
   update,
 }: {
   draft: AppConfig;
+  saved: AppConfig | null;
   update: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => void;
 }) {
+  const qc = useQueryClient();
   // Same "warn if config file missing" behavior as the Obsidian plugin.
   const effective = draft.zsum_config_path?.trim() || draft.zsum_config_path_effective;
   const probe = useQuery({
@@ -346,6 +350,32 @@ function CommandBlock({
     staleTime: 2_000,
   });
   const missing = probe.data && !probe.data.exists ? probe.data.path : null;
+
+  // "Create it" writes a starter zsum.config.yaml at the saved effective path
+  // (the config-doc endpoint always targets that one), so it is offered only
+  // while the Config path field has no unsaved edit.
+  const pathUnsaved =
+    (draft.zsum_config_path ?? "").trim() !== (saved?.zsum_config_path ?? "").trim();
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const createConfig = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await postConfigDoc([
+        { path: "vault_output", value: saved?.vault_path || "./vault" },
+        { path: "cache_dir", value: "./cache" },
+      ]);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["app", "path-exists"] }),
+        qc.invalidateQueries({ queryKey: ["zsum"] }),
+      ]);
+    } catch (e) {
+      setCreateError((e as Error).message);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<ZsumTestResult | null>(null);
@@ -389,6 +419,23 @@ function CommandBlock({
           title: "Choose zsum.config.yaml",
         }}
       />
+      {missing && (
+        <div className="ml-44 -mt-1 flex flex-wrap items-center gap-2 pl-3 text-[11px] text-muted-foreground">
+          <span>Pick an existing zsum.config.yaml with Browse, or</span>
+          <button
+            type="button"
+            onClick={() => void createConfig()}
+            disabled={creating || pathUnsaved}
+            title={pathUnsaved ? "Save settings first, then create the file at the new path." : undefined}
+            className="rounded border border-border px-2 py-0.5 text-[11px] text-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+            data-testid="zsum-create-config"
+          >
+            {creating ? "Creating…" : "Create a starter config here"}
+          </button>
+          {pathUnsaved && <span>(save settings first)</span>}
+          {createError && <span className="text-red-600">{createError}</span>}
+        </div>
+      )}
       <TextRow
         label="Python command"
         value={draft.zsum_python_cmd}

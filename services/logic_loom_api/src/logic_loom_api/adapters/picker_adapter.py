@@ -28,7 +28,13 @@ Order of precedence:
 1. ``<akms_workspace>/batches.json`` → export via
    :func:`logic_loom_api.batches.compat.export_generation_plan` into
    ``<akms_workspace>/.cache/generation_plan.md`` and hand that to the
-   picker.
+   picker. The picker parses its plan once, so the adapter re-exports and
+   reloads it whenever ``batches.json`` changes (checked on each picker
+   request). Batches the legacy format can't name (workspace slugs such as
+   ``starter-placeholder``, or batches with no round) are exported under
+   stable picker ids ``R900_B<n>`` recorded in
+   ``<akms_workspace>/.cache/picker_batch_ids.json``; before this they were
+   silently dropped and the picker showed no batches.
 2. ``<akms_repo>/Packages/AKMS_nodes_gen/generation_plan.md`` (legacy
    dev-time source; skipped when ``akms_repo`` is unset or missing).
 3. Neither exists → raise ``FileNotFoundError`` so the ``main.py`` mount
@@ -48,11 +54,15 @@ a 500 on the first picker request.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
+import threading
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
 from ..config import Settings
 
@@ -63,6 +73,17 @@ logger = logging.getLogger(__name__)
 # ``batches.json`` is the source of truth, this file is a derived artefact
 # the picker reads.
 _PLAN_CACHE_RELPATH = Path(".cache") / "generation_plan.md"
+
+# Persistent workspace-id -> picker-id map for batches the legacy plan format
+# can't name. Ids are only ever added, never reused, so a picker assignment
+# keyed by a picker id keeps pointing at the same batch.
+_PICKER_ID_MAP_RELPATH = Path(".cache") / "picker_batch_ids.json"
+
+# The synthetic round those batches are exported under. High enough not to
+# collide with real AKMS rounds; collisions are skipped anyway.
+_WORKSPACE_ROUND = 900
+_WORKSPACE_ROUND_TITLE = "Workspace batches"
+_LEGACY_ID = re.compile(r"^R(?P<round>\d+)_B\d+$")
 
 # Location of the legacy plan inside an AKMS source checkout.
 _LEGACY_PLAN_RELPATH = Path("Packages") / "AKMS_nodes_gen" / "generation_plan.md"
@@ -107,7 +128,58 @@ def build_picker_app(settings: Settings) -> FastAPI:
 
     plan_md = _resolve_plan_md(settings)
     paths = _build_paths(settings, Paths, plan_md=plan_md)
-    return create_app(paths)
+    app = create_app(paths)
+
+    workspace = Path(settings.akms_workspace).expanduser()
+    if plan_md == workspace / _PLAN_CACHE_RELPATH:
+        watcher = _BatchesWatcher(workspace, app.state.picker)
+
+        @app.middleware("http")
+        async def _refresh_plan(request: Request, call_next: Any) -> Any:
+            watcher.refresh_if_changed()
+            return await call_next(request)
+
+    return app
+
+
+class _BatchesWatcher:
+    """Re-export the plan and reload the picker when ``batches.json`` changes.
+
+    The upstream picker parses its plan once, in ``create_app``. Without this,
+    batches created or edited under AKMS > Batches never reached the picker
+    until the app restarted. The check is one ``stat`` per picker request.
+    """
+
+    def __init__(self, workspace: Path, repo: Any) -> None:
+        self._workspace = workspace
+        self._repo = repo
+        self._lock = threading.Lock()
+        self._signature = self._current_signature()
+
+    def _current_signature(self) -> tuple[int, int] | None:
+        try:
+            st = (self._workspace / "batches.json").stat()
+        except OSError:
+            return None
+        return (st.st_mtime_ns, st.st_size)
+
+    def refresh_if_changed(self) -> None:
+        signature = self._current_signature()
+        if signature is None or signature == self._signature:
+            return
+        with self._lock:
+            if signature == self._signature:
+                return
+            try:
+                _materialise_plan_from_batches(
+                    self._workspace / "batches.json",
+                    self._workspace / _PLAN_CACHE_RELPATH,
+                )
+                self._repo.load()
+            except Exception as exc:  # noqa: BLE001 — keep serving the old plan
+                logger.warning("picker plan refresh failed: %s", exc)
+                return
+            self._signature = signature
 
 
 def _resolve_plan_md(settings: Settings) -> Path:
@@ -172,8 +244,69 @@ def _materialise_plan_from_batches(
 
     # The store loads from a directory (it appends batches.json itself).
     store = BatchStore.load(batches_json.parent)
+    view = _picker_view(store, batches_json.parent / _PICKER_ID_MAP_RELPATH)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(export_generation_plan(store), encoding="utf-8")
+    target.write_text(export_generation_plan(view), encoding="utf-8")
+
+
+def _load_id_map(path: Path) -> dict[str, str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items() if _LEGACY_ID.match(str(v))}
+
+
+def _picker_view(store: Any, id_map_path: Path) -> Any:
+    """Return a copy of ``store`` in which every batch has a legacy plan id.
+
+    ``export_generation_plan`` keeps only batches with an ``R<n>_B<m>`` id and
+    a round, because that is all the upstream plan parser reads. A batch with
+    a legacy id but no round gets the round from its id. Any other batch
+    (``starter-placeholder``, or a slug minted from a title) gets a stable
+    picker id ``R900_B<n>`` from the persistent map, and its workspace id is
+    appended to the title so the picker shows which batch it is.
+    """
+    from ..batches.store import BatchStore
+
+    id_map = _load_id_map(id_map_path)
+    legacy_ids = {b.id for b in store.batches if _LEGACY_ID.match(b.id)}
+    taken = legacy_ids | set(id_map.values())
+    next_n = 1
+    changed = False
+    out = []
+    for batch in store.batches:
+        match = _LEGACY_ID.match(batch.id)
+        if match:
+            if batch.round is None:
+                batch = batch.model_copy(update={"round": int(match["round"])})
+            out.append(batch)
+            continue
+        picker_id = id_map.get(batch.id)
+        if picker_id is None or picker_id in legacy_ids:
+            while f"R{_WORKSPACE_ROUND}_B{next_n}" in taken:
+                next_n += 1
+            picker_id = f"R{_WORKSPACE_ROUND}_B{next_n}"
+            taken.add(picker_id)
+            id_map[batch.id] = picker_id
+            changed = True
+        out.append(
+            batch.model_copy(
+                update={
+                    "id": picker_id,
+                    "title": f"{batch.title} · {batch.id}",
+                    "round": _WORKSPACE_ROUND,
+                    "round_title": _WORKSPACE_ROUND_TITLE,
+                    "round_theme": "",
+                }
+            )
+        )
+    if changed:
+        id_map_path.parent.mkdir(parents=True, exist_ok=True)
+        id_map_path.write_text(json.dumps(id_map, indent=2, sort_keys=True), encoding="utf-8")
+    return BatchStore(batches=out)
 
 
 def _build_paths(settings: Settings, PathsCls, *, plan_md: Path | None = None):  # type: ignore[no-untyped-def]

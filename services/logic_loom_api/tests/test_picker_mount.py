@@ -137,3 +137,51 @@ def test_picker_without_plan_source_raises_file_not_found(tmp_path: Path) -> Non
     )
     with pytest.raises(FileNotFoundError, match="batches.json"):
         build_picker_app(s)
+
+
+# ── QA batch 5: the picker shows the workspace batches, and stays current ────
+
+
+def _add_batch(workspace: Path, batch_id: str, title: str, **extra: object) -> None:
+    from logic_loom_api.batches import EditableBatch
+
+    store = BatchStore.load(workspace)
+    store.add(EditableBatch(id=batch_id, title=title, **extra))
+    store.save(workspace)
+
+
+def test_picker_lists_slug_and_roundless_batches(settings: Settings) -> None:
+    """Workspace batches with slug ids (the starter, UI-created ones) are listed."""
+    workspace = Path(settings.akms_workspace)
+    _add_batch(workspace, "starter-placeholder", "Starter (placeholder)")
+    _add_batch(workspace, "R2_B1", "Legacy id, no round")
+    client = TestClient(build_picker_app(settings))
+    batches = client.get("/api/batches").json()
+    titles = sorted(b["title"] for b in batches)
+    assert titles == ["Legacy id, no round", "Starter (placeholder) · starter-placeholder"]
+    ids = {b["title"]: b["id"] for b in batches}
+    assert ids["Legacy id, no round"] == "R2_B1"
+    assert ids["Starter (placeholder) · starter-placeholder"] == "R900_B1"
+
+
+def test_picker_ids_for_slug_batches_are_stable(settings: Settings) -> None:
+    workspace = Path(settings.akms_workspace)
+    _add_batch(workspace, "second", "Second")
+    _add_batch(workspace, "first", "First")
+    first = {b["title"]: b["id"] for b in TestClient(build_picker_app(settings)).get("/api/batches").json()}
+    # Delete one batch and rebuild: the other keeps its picker id.
+    store = BatchStore.load(workspace)
+    store.batches = [b for b in store.batches if b.id != "second"]
+    store.save(workspace)
+    second = {b["title"]: b["id"] for b in TestClient(build_picker_app(settings)).get("/api/batches").json()}
+    assert second["First · first"] == first["First · first"]
+
+
+def test_picker_picks_up_batches_added_after_mount(settings: Settings) -> None:
+    workspace = Path(settings.akms_workspace)
+    client = TestClient(build_picker_app(settings))
+    assert client.get("/api/batches").json() == []
+    _add_batch(workspace, "new-batch", "New batch")
+    os.utime(workspace / "batches.json", ns=(1, 1_000_000_000_000))  # force a new mtime
+    batches = client.get("/api/batches").json()
+    assert [b["title"] for b in batches] == ["New batch · new-batch"]

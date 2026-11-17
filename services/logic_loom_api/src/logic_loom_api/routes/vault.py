@@ -29,6 +29,12 @@ from ..search.ripgrep import RipgrepBackend
 router = APIRouter()
 
 EXCLUDED_DIR_NAMES = frozenset({".obsidian", ".git", "node_modules", ".DS_Store", "__pycache__"})
+
+
+def _is_hidden(name: str) -> bool:
+    """Dot-entries (.github, .trash, .obsidian, ...) and tool folders stay out of
+    the tree, as in Obsidian."""
+    return name.startswith(".") or name in EXCLUDED_DIR_NAMES
 MAX_TREE_DEPTH = 6
 MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
 
@@ -69,7 +75,7 @@ def _walk_tree(directory: Path, vault_root: Path, depth: int) -> list[TreeNode]:
         return []
     entries: list[TreeNode] = []
     for entry in sorted(directory.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
-        if entry.name in EXCLUDED_DIR_NAMES:
+        if _is_hidden(entry.name):
             continue
         rel = entry.relative_to(vault_root).as_posix()
         if entry.is_dir():

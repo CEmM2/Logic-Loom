@@ -813,10 +813,16 @@ def first_run_status(settings: Settings) -> dict[str, Any]:
     user's own Obsidian vault) is needed: zsum and AKMS run from installed
     packages, so the ``zsum_repo`` / ``akms_repo`` source checkouts are
     optional developer overrides and never make setup "needed".
+
+    A value supplied another way (``LOGIC_LOOM_VAULT_PATH`` or a constructor
+    kwarg) also counts: ``settings`` already holds it, with placeholders
+    filtered out, so setup is not asked for a path the user already gave.
     """
     raw = _load_toml(_user_config_path())
     needs: list[str] = []
     for key in FIRST_RUN_REQUIRED_KEYS:
+        if getattr(settings, key, None) is not None:
+            continue
         v = raw.get(key)
         if v is None or is_placeholder(v):
             needs.append(key)

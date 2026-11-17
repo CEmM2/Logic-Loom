@@ -16,7 +16,8 @@ up as a clear error in the run dialog or in a preflight check.
 
 On first launch, a setup dialog asks for the one required setting: the **vault path**,
 the folder zotero-summarizer publishes your Obsidian vault into. It also lets you pick
-the vault search backend (`ripgrep`, the default, or `qmd`).
+the vault search backend (`ripgrep`, the default, or `qmd`). If you already set
+`LOGIC_LOOM_VAULT_PATH` in the environment, the dialog is skipped.
 
 The other fields are optional:
 

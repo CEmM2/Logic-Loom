@@ -141,6 +141,18 @@ export function GraphIssueLogDialog({
           </div>
         </div>
 
+        {report.issue_count > 0 && (
+          <div
+            data-testid="graph-issue-how-to-fix"
+            className="border-b border-border px-5 py-3 text-xs text-muted-foreground"
+          >
+            <span className="font-medium text-foreground">How to fix:</span> a graph
+            source file must start with valid AKMS node frontmatter, and the reason under
+            each file says what is wrong. Open a file to add or correct it. If a file is not meant
+            to be a node, such as a README or a scratch note, choose{" "}
+            <strong>Ignore in future</strong> so later scans skip it.
+          </div>
+        )}
         <div className="grid gap-3 border-b border-border bg-muted/20 px-5 py-3 text-xs text-muted-foreground md:grid-cols-5">
           <Info label="Scanned" value={`${report.total_markdown_files} markdown file${report.total_markdown_files === 1 ? "" : "s"}`} />
           <Info label="Valid" value={`${report.valid_markdown_files}`} />

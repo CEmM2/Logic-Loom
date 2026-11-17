@@ -1,5 +1,8 @@
+import "katex/dist/katex.min.css";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { useNavigate } from "react-router-dom";
 
 import { Wikilink } from "./Wikilink";
@@ -38,7 +41,10 @@ export function MarkdownPreview({ content }: Props) {
   return (
     <div className="prose prose-sm max-w-none break-words">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        // $...$ and $$...$$ render as math (zsum summaries carry LaTeX).
+        // trust stays off: vault notes are not ours, so no \href/\url etc.
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false }]]}
         urlTransform={urlTransform}
         components={{
           a: ({ href, children, ...rest }) => {

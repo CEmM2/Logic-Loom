@@ -3,12 +3,15 @@ import { useMutation } from "@tanstack/react-query";
 
 import { compileMechdsl, type MechdslCompileResult } from "../../api/mechdsl";
 
+export const EXAMPLE_NODE_ID = "compmech.node.radial_return_j2";
+
 export default function MechdslCompileRoute() {
   const [nodeId, setNodeId] = useState("");
   const [runVerify, setRunVerify] = useState(false);
+  const [emptyHint, setEmptyHint] = useState(false);
 
   const mutation = useMutation<MechdslCompileResult, Error>({
-    mutationFn: () => compileMechdsl({ node_id: nodeId, run_verify: runVerify }),
+    mutationFn: () => compileMechdsl({ node_id: nodeId.trim(), run_verify: runVerify }),
   });
 
   return (
@@ -18,7 +21,14 @@ export default function MechdslCompileRoute() {
         className="max-w-lg space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (nodeId.trim()) mutation.mutate();
+          // The example id is placeholder text, not a value: an empty field used
+          // to make Compile silently do nothing. Say so instead.
+          if (!nodeId.trim()) {
+            setEmptyHint(true);
+            return;
+          }
+          setEmptyHint(false);
+          mutation.mutate();
         }}
       >
         <label className="block text-sm">
@@ -26,9 +36,18 @@ export default function MechdslCompileRoute() {
           <input
             className="w-full rounded border border-border bg-background px-2 py-1 text-sm"
             value={nodeId}
-            onChange={(e) => setNodeId(e.target.value)}
-            placeholder="compmech.node.radial_return_j2"
+            onChange={(e) => {
+              setNodeId(e.target.value);
+              if (e.target.value.trim()) setEmptyHint(false);
+            }}
+            placeholder={`e.g. ${EXAMPLE_NODE_ID}`}
+            aria-describedby="mechdsl-node-help"
+            data-testid="mechdsl-node-id"
           />
+          <span id="mechdsl-node-help" className="mt-1 block text-xs text-muted-foreground">
+            Type the id of an AKMS node from the graph (the grey text is only an
+            example).
+          </span>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -40,11 +59,16 @@ export default function MechdslCompileRoute() {
         </label>
         <button
           type="submit"
-          disabled={!nodeId.trim() || mutation.isPending}
+          disabled={mutation.isPending}
           className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
         >
           {mutation.isPending ? "Compiling…" : "Compile"}
         </button>
+        {emptyHint && (
+          <p role="alert" className="text-sm text-destructive">
+            Enter an AKMS node id first.
+          </p>
+        )}
       </form>
 
       {mutation.isError && (

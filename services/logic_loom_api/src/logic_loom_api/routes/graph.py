@@ -145,11 +145,28 @@ class GraphIssueIgnoreRequest(BaseModel):
     ignored: bool = True
 
 
+def _review_required_message(report_payload: dict) -> str:
+    """Name the files and the ways forward, so the 409 is actionable on its own."""
+    issues = [i for i in report_payload.get("issues", []) if not i.get("ignored")]
+    names = [str(i.get("relative_path") or i.get("path")) for i in issues[:5]]
+    more = len(issues) - len(names)
+    listed = ", ".join(names) + (f" and {more} more" if more > 0 else "")
+    count = report_payload.get("issue_count", len(issues))
+    return (
+        f"{count} graph source file(s) can't be read as AKMS nodes"
+        + (f": {listed}" if listed else "")
+        + ". Fix their frontmatter, ignore files that aren't nodes "
+        "(POST /api/graph/issues/ignore), or retry with skip_invalid_files=true "
+        "to build without them. The full list is in detail.issues and in "
+        f"{report_payload.get('log_path')}."
+    )
+
+
 def _review_required_response(report_payload: dict) -> JSONResponse:
     return JSONResponse(
         envelope(
             "review_required",
-            "Graph source review is required before generation can continue.",
+            _review_required_message(report_payload),
             report_payload,
         ),
         status_code=409,
