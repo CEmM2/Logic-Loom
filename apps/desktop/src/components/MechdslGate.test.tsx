@@ -116,4 +116,34 @@ describe("MechDSL mode wiring", () => {
     });
     expect(container.querySelector("aside")).not.toBeNull();
   });
+
+  it("keeps the app navigation visible while the gate blocks the mode", () => {
+    mockUseMechdslStatus.mockReturnValue({
+      data: { available: false, reason: "not installed" },
+      isLoading: false,
+    });
+    const mode: Mode = "mechdsl";
+    const router = createMemoryRouter(
+      [
+        {
+          path: `/${mode}`,
+          element: <AppShell currentMode={mode} onModeChange={() => {}} gate={MechdslGate} />,
+          children: [{ index: true, element: <div data-testid="outlet">x</div> }],
+        },
+      ],
+      { initialEntries: [`/${mode}`] },
+    );
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
+    const { container } = render(
+      <QueryClientProvider client={qc}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+
+    expect(container.textContent).toContain("MechDSL not available");
+    expect(container.querySelector('[data-testid="outlet"]')).toBeNull();
+    // The mode switcher and side nav are still there, so the user can leave.
+    expect(container.querySelector("aside")).not.toBeNull();
+    topLevelModes.forEach((m) => expect(container.textContent).toContain(m.label));
+  });
 });

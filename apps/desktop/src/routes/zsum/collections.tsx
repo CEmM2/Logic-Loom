@@ -22,7 +22,7 @@ export default function CollectionsRoute() {
   const selectedKey = searchParams.get("collection");
   const [filter, setFilter] = useState("");
 
-  const { data: indexResp, isLoading } = useQuery({
+  const { data: indexResp, isLoading, error: indexError } = useQuery({
     queryKey: ["zsum", "index"],
     queryFn: getZsumIndex,
   });
@@ -70,13 +70,40 @@ export default function CollectionsRoute() {
     );
   }
 
-  if (indexResp && indexResp.kind !== "ok") {
+  if (indexError || !indexResp || indexResp.kind !== "ok") {
+    const missing = !indexError && indexResp?.kind === "missing";
+    const detail = indexError
+      ? indexError instanceof Error
+        ? indexError.message
+        : String(indexError)
+      : indexResp && indexResp.kind !== "ok"
+        ? indexResp.message
+        : null;
     return (
-      <main className="flex h-full flex-col gap-3 p-8">
+      <main className="flex h-full flex-col gap-3 p-8" data-testid="collections-empty">
         <h1 className="text-2xl font-semibold">Collections</h1>
-        <p className="text-sm text-muted-foreground">
-          {indexResp.message ?? "No zsum index available yet. Run the pipeline first."}
+        <p className="max-w-prose text-sm text-muted-foreground">
+          {missing
+            ? "No zsum library yet. Collections appear here after the zsum pipeline has run once and written its index."
+            : "The zsum library index could not be read."}
         </p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/zsum/pipeline"
+            className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted"
+          >
+            Open Pipeline
+          </Link>
+          <Link
+            to="/zsum/settings"
+            className="rounded border border-border px-3 py-1 text-xs font-medium hover:bg-muted"
+          >
+            Check zsum settings
+          </Link>
+        </div>
+        {detail && (
+          <p className="break-all font-mono text-xs text-muted-foreground">{detail}</p>
+        )}
       </main>
     );
   }

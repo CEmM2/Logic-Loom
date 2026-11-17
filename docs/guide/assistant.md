@@ -21,7 +21,9 @@ install.
 
 Discover searches both services and marks each result that matches your Zotero catalog.
 From a paper you can explore related work in five ways: citations, references, similar
-papers, co-citation and co-reference, each with ranking presets.
+papers, co-citation and co-reference, each with ranking presets. To start from the
+papers already in a batch, open the batch's **Related** tab (the Overview's "Find related
+papers" card takes you there). A batch's **Runs** tab lists the workflow runs made from it.
 
 Set `openalex_user_email` to use the OpenAlex polite pool (required for OpenAlex
 requests). API keys for OpenAlex and Semantic Scholar are optional and raise rate limits.

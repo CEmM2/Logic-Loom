@@ -69,7 +69,8 @@ Learn compiles a slice of the graph into a **Learning Source Packet**: a reprodu
 artifact with a reading order, per-node sections, pitfalls, assessment items and code
 links, which it then exports in the format you pick. The available modes and exporters
 come from the installed `akms-learn`; modes that need an LLM are disabled until a provider
-is configured. See the [akms-learn docs](https://cemm2.github.io/AKMS/reference/akms-learn/index.html).
+is configured. The History list under the form keeps your latest 50 compiles on this
+computer, across restarts. See the [akms-learn docs](https://cemm2.github.io/AKMS/reference/akms-learn/index.html).
 
 ## More on AKMS
 

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { useFailureMemoryProjects } from "../hooks/failureMemory";
+import { ConfigSnippet } from "./ConfigSnippet";
 
 interface Props {
   children: ReactNode;
@@ -70,14 +71,14 @@ export function FailureMemoryGate({ children }: Props) {
       <Explain title="No failure-memory projects are configured">
         Logic-Loom never discovers <code>.failure-memory</code> directories by
         scanning your filesystem — a project is visible only when you list it.
-        Add entries to <code>config.toml</code>:
-        <pre className="mt-3 overflow-x-auto rounded bg-muted p-3 text-left text-xs">
-{`failure_memory_mode = "read-only"
+        Add an entry like this one for each project:
+        <ConfigSnippet
+          snippet={`failure_memory_mode = "read-only"
 
 [[failure_memory_projects]]
 id = "logic-loom"
 config = "/path/to/Logic-Loom/.failure-memory/config.toml"`}
-        </pre>
+        />
       </Explain>
     );
   }

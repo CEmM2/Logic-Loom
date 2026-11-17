@@ -13,7 +13,7 @@ import {
  * Renders the five Assistant quick actions:
  *   1. Create a source batch      → /assistant/batches
  *   2. Search for papers          → /assistant/discover
- *   3. Find related papers        → /assistant/discover
+ *   3. Find related papers        → /assistant/batches?tab=related
  *   4. Run a workflow             → /assistant/workflows
  *   5. Open recent outputs        → /assistant/outputs
  *
@@ -42,8 +42,8 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   {
     label: "Find related papers",
     description:
-      "Pivot from a seed paper through references, citations, and shared authors.",
-    target: ASSISTANT_ROUTE_DISCOVER,
+      "Pivot from a batch's papers through references, citations, and shared authors.",
+    target: `${ASSISTANT_ROUTE_BATCHES}?tab=related`,
   },
   {
     label: "Run a workflow",

@@ -1,12 +1,16 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { RecordsGate } from "./RecordsGate";
 import { subnav } from "./SectionSideNav";
 import { topLevelModes } from "./TopModeNav";
 
 const mockUseRecordsStatus = vi.fn();
+vi.mock("../api/app", () => ({
+  getFirstRunStatus: () => Promise.resolve({ config_path: "/home/me/.config/logic-loom/config.toml" }),
+}));
 vi.mock("../hooks/records", () => ({
   useRecordsStatus: () => mockUseRecordsStatus(),
 }));
@@ -17,9 +21,11 @@ const base = { package_installed: true, version: "0.4.0", reason: null, experime
 
 function renderGate() {
   return render(
-    <RecordsGate>
-      <div data-testid="gated">RECORDS</div>
-    </RecordsGate>,
+    <QueryClientProvider client={new QueryClient()}>
+      <RecordsGate>
+        <div data-testid="gated">RECORDS</div>
+      </RecordsGate>
+    </QueryClientProvider>,
   );
 }
 
@@ -39,6 +45,13 @@ describe("RecordsGate", () => {
     renderGate();
     expect(screen.queryByTestId("gated")).toBeNull();
     expect(screen.getByText(/No record stores are configured/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Copy snippet" })).toBeTruthy();
+  });
+
+  it("names the config file to paste the snippet into", async () => {
+    mockUseRecordsStatus.mockReturnValue({ data: { ...base, available: true, stores: [] }, isLoading: false });
+    renderGate();
+    expect(await screen.findByText("/home/me/.config/logic-loom/config.toml")).toBeTruthy();
   });
 
   it("renders the subtree once a store is configured", () => {

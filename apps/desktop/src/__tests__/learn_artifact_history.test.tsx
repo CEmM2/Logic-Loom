@@ -160,6 +160,7 @@ beforeEach(() => {
   openPathMock.mockReset();
   tauriRuntimeRef.value = false; // default: browser (non-Tauri)
   getStatus.mockResolvedValue(AVAILABLE_STATUS);
+  window.localStorage.clear(); // history is saved in localStorage
 });
 
 afterEach(() => {
@@ -169,6 +170,32 @@ afterEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe("Learn tab — artifact history, open-export-folder, help panel", () => {
+  it("history survives a reload (saved in localStorage)", async () => {
+    compileFn.mockResolvedValueOnce(RESPONSE_A);
+    const first = renderLearn();
+    await fillAndCompile("Graph Traversal", "Understand traversal");
+    await waitFor(() => {
+      expect(screen.getByTestId("learn-history-entry-alpha111")).toBeTruthy();
+    });
+    first.unmount();
+
+    // A fresh mount (what a reload does) shows the saved entry without compiling.
+    renderLearn();
+    await waitFor(() => {
+      expect(screen.getByTestId("learn-history-entry-alpha111")).toBeTruthy();
+    });
+    expect(compileFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores corrupt saved history", async () => {
+    window.localStorage.setItem("logic-loom.learn.history.v1", "{not json");
+    renderLearn();
+    await waitFor(() => {
+      expect(screen.getByTestId("learn-compile")).toBeTruthy();
+    });
+    expect(screen.queryByTestId("learn-artifact-history")).toBeNull();
+  });
+
   // ──────────────────────────────────────────────────────────────────────────
   // Case (a): artifact history lists prior compiled artifacts
   // ──────────────────────────────────────────────────────────────────────────

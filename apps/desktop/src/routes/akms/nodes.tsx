@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { ApiError } from "../../api/client";
 import { IndeterminateProgressBar } from "../../components/IndeterminateProgressBar";
-import { GraphReviewRequiredError, type GraphIssueLog } from "../../api/graph";
+import { GraphReviewRequiredError, getGraphNodes, type GraphIssueLog } from "../../api/graph";
 import { copyToVault, listNodes, openInEditor, readNode, type NodeFile } from "../../api/nodes";
 import { GraphIssueLogDialog } from "../../components/graph/GraphIssueLogDialog";
 import { NodeMarkdownPreview } from "../../components/NodeMarkdownPreview";
@@ -206,8 +206,25 @@ export default function NodesRoute() {
   };
 
   const selectedNode = nodes.find((node) => node.path === selectedPath) ?? null;
+  // Only a file whose frontmatter declares an `id` is a graph node. The node
+  // list falls back to the file name (e.g. "README") for files without one,
+  // and sending that to the graph view only produced "Unknown node".
+  const frontmatterId = nodeContent?.frontmatter.id;
   const graphNodeId =
-    nodeContent?.frontmatter.id ?? selectedNode?.id ?? null;
+    typeof frontmatterId === "string" && frontmatterId.trim() ? frontmatterId : null;
+  // Is the id in the compiled graph? A node can be missing when its file is
+  // outside the graph source vault or the graph predates it. While the graph
+  // is not compiled (or the check fails) the buttons stay enabled and the
+  // graph view explains what to do.
+  const graphMembership = useQuery({
+    queryKey: ["graph", "nodes", "membership", graphNodeId],
+    queryFn: () => getGraphNodes({ query: graphNodeId ?? "" }),
+    enabled: Boolean(graphNodeId),
+    retry: false,
+    staleTime: 30_000,
+  });
+  const notInGraph =
+    graphMembership.isSuccess && !graphMembership.data.some((n) => n.id === graphNodeId);
   const selectedNodeEstablished = selectedNode ? isEstablished(selectedNode) : false;
 
   const handleOpenGraph = () => {
@@ -344,7 +361,14 @@ export default function NodesRoute() {
                     <button
                       type="button"
                       onClick={handleOpenGraph}
-                      disabled={!graphNodeId}
+                      disabled={!graphNodeId || notInGraph}
+                      title={
+                        !graphNodeId
+                          ? "This file has no frontmatter id, so it is not a graph node."
+                          : notInGraph
+                            ? "Not in the compiled graph yet. Use Generate & View Graph to rebuild it."
+                            : undefined
+                      }
                       className="rounded border border-border px-3 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       View in Graph
@@ -381,6 +405,19 @@ export default function NodesRoute() {
                   </div>
                 </div>
 
+                {nodeContent && !graphNodeId && (
+                  <div className="border-b border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+                    This file has no <code>id</code> in its frontmatter, so it is not a node
+                    in the graph.
+                  </div>
+                )}
+                {notInGraph && (
+                  <div className="border-b border-border bg-muted/20 px-4 py-2 text-xs text-muted-foreground">
+                    <code>{graphNodeId}</code> is not in the compiled graph. Generate the
+                    graph to include it; if it is still missing, its file is outside the
+                    graph source vault (Settings ▸ AKMS global vault).
+                  </div>
+                )}
                 {graphActionError && (
                   <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
                     {graphActionError}

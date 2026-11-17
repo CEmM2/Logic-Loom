@@ -10,6 +10,7 @@
  * success so the next render sees fresh server state.
  */
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   useMutation,
   useQuery,
@@ -67,7 +68,15 @@ const DETAIL_KEY = (id: string) =>
 export default function AssistantBatchesRoute() {
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tab, setTab] = useState<DetailTabKey>("overview");
+  // `?tab=related` (from the Overview's "Find related papers" card) opens a
+  // detail tab directly.
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<DetailTabKey>(() => {
+    const requested = searchParams.get("tab");
+    return DETAIL_TABS.some((t) => t.key === requested)
+      ? (requested as DetailTabKey)
+      : "overview";
+  });
   const [newTitle, setNewTitle] = useState("");
 
   const listQuery = useQuery({

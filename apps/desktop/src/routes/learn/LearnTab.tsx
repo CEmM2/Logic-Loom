@@ -13,7 +13,7 @@
  *   9. provenance summary           → response.provenance_summary
  *
  * Additional panels:
- *   10. Artifact history panel      → <ArtifactHistoryPanel> (session-scoped)
+ *   10. Artifact history panel      → <ArtifactHistoryPanel> (saved in localStorage)
  *   11. Open export folder button   → <OpenFolderButton> (Tauri-only, degrades gracefully)
  *   12. Help / provenance panel     → <LearnHelpPanel> (collapsible static doc)
  *
@@ -48,6 +48,8 @@ import { useLearnExporters, useLearnProfiles } from "../../hooks/app";
 
 import {
   ArtifactHistoryPanel,
+  loadArtifactHistory,
+  saveArtifactHistory,
   type ArtifactHistoryEntry,
 } from "./ArtifactHistoryPanel";
 import {
@@ -195,12 +197,11 @@ export function LearnTab({ status }: Props) {
     );
   };
 
-  // ── Session artifact history ─────────────────────────────────────────────
-  // Accumulates each successful compile response for the current session.
-  // SESSION-SCOPED ONLY: no backend history endpoint exists (routes/learn.py
-  // has no /history or /list route). Persisting cross-session history would
-  // require a new backend listing endpoint.
-  const [artifactHistory, setArtifactHistory] = useState<ArtifactHistoryEntry[]>([]);
+  // ── Artifact history ─────────────────────────────────────────────────────
+  // Each successful compile is appended and saved to localStorage, so the
+  // list survives reloads (see ArtifactHistoryPanel for why not the backend).
+  const [artifactHistory, setArtifactHistory] =
+    useState<ArtifactHistoryEntry[]>(loadArtifactHistory);
 
   // ── Compile mutation (element 5) ──────────────────────────────────────────
   const compile = useMutation<LearnCompileResponse, Error, LearnCompileRequest>({
@@ -215,7 +216,7 @@ export function LearnTab({ status }: Props) {
         exports: data.exports,
         timestamp: Date.now(),
       };
-      setArtifactHistory((prev) => [...prev, entry]);
+      setArtifactHistory((prev) => saveArtifactHistory([...prev, entry]));
     },
   });
 
@@ -686,11 +687,7 @@ export function LearnTab({ status }: Props) {
         </section>
       </div>
 
-      {/* 10. Session artifact history.
-           Accumulates each successful compile in React state.
-           SESSION-SCOPED ONLY — no backend history endpoint exists (routes/learn.py
-           has no /history or /list route). A future backend listing endpoint would
-           be the right place to persist cross-session history. */}
+      {/* 10. Artifact history, saved on this computer. */}
       <ArtifactHistoryPanel entries={artifactHistory} />
     </main>
   );

@@ -32,6 +32,10 @@ config = "/path/to/my-project/.failure-memory/config.toml"
 # root = "/path/to/my-project"   # only if the config is not directly under the repo root
 ```
 
+Until a project is listed, the Failure Memory tab shows an example with a **Copy
+snippet** button and the path of your `config.toml`. Restart Logic-Loom after editing
+the file.
+
 ## Modes
 
 | `failure_memory_mode` | What it allows |

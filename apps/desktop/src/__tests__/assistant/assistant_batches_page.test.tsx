@@ -17,6 +17,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../api/assistantBatches", async () => {
   return {
@@ -46,11 +47,13 @@ function makeQC() {
   });
 }
 
-function renderRoute() {
+function renderRoute(initialPath = "/assistant/batches") {
   return render(
-    <QueryClientProvider client={makeQC()}>
-      <AssistantBatchesRoute />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={[initialPath]}>
+      <QueryClientProvider client={makeQC()}>
+        <AssistantBatchesRoute />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 

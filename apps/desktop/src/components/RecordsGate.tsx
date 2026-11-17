@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { useRecordsStatus } from "../hooks/records";
+import { ConfigSnippet } from "./ConfigSnippet";
 
 interface Props {
   children: ReactNode;
@@ -57,8 +58,8 @@ export function RecordsGate({ children }: Props) {
       <Explain title="No record stores are configured">
         Logic-Loom never discovers record stores by scanning your filesystem — a
         store is visible only when you list it in <code>config.toml</code>:
-        <pre className="mt-3 overflow-x-auto rounded bg-muted p-3 text-left text-xs">
-{`[[records_stores]]
+        <ConfigSnippet
+          snippet={`[[records_stores]]
 id = "my-project"
 scope = "project:my-project"
 repo = "/path/to/my-project"   # records in <repo>/.knowledge/records
@@ -66,7 +67,7 @@ repo = "/path/to/my-project"   # records in <repo>/.knowledge/records
 [[records_stores]]
 id = "scout"
 scope = "agent:scout"          # ~/.knowledge/records/agent/scout`}
-        </pre>
+        />
       </Explain>
     );
   }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import { GlobalRunStatus } from "./GlobalRunStatus";
@@ -12,6 +12,13 @@ import {
 interface AppShellProps {
   currentMode: Mode;
   onModeChange: (mode: Mode) => void;
+  /**
+   * Optional availability gate (AkmsGate, MechdslGate, ...). It wraps only the
+   * routed content, so the mode switcher and side nav stay usable while the
+   * gate explains why the mode is unavailable. Wrapping the whole shell in a
+   * gate left the user with no way out of the explanation screen.
+   */
+  gate?: ComponentType<{ children: ReactNode }>;
 }
 
 /**
@@ -31,7 +38,7 @@ interface AppShellProps {
  * from any Assistant route (and any other mode too — the modal is
  * shell-level).
  */
-export function AppShell({ currentMode, onModeChange }: AppShellProps) {
+export function AppShell({ currentMode, onModeChange, gate: Gate }: AppShellProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -65,7 +72,13 @@ export function AppShell({ currentMode, onModeChange }: AppShellProps) {
       <div className="grid grid-cols-[240px_1fr]">
         <SectionSideNav mode={currentMode} />
         <main className="overflow-auto">
-          <Outlet />
+          {Gate ? (
+            <Gate>
+              <Outlet />
+            </Gate>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
       <GlobalRunStatus />

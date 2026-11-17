@@ -125,9 +125,7 @@ function Shell() {
         <Route
           path="/akms/*"
           element={
-            <AkmsGate>
-              <AppShell currentMode="akms" onModeChange={setCurrentMode} />
-            </AkmsGate>
+            <AppShell currentMode="akms" onModeChange={setCurrentMode} gate={AkmsGate} />
           }
         >
           <Route index element={<LazyRoute><AkmsOverviewRoute /></LazyRoute>} />
@@ -169,9 +167,7 @@ function Shell() {
         <Route
           path="/mechdsl/*"
           element={
-            <MechdslGate>
-              <AppShell currentMode="mechdsl" onModeChange={setCurrentMode} />
-            </MechdslGate>
+            <AppShell currentMode="mechdsl" onModeChange={setCurrentMode} gate={MechdslGate} />
           }
         >
           <Route index element={<LazyRoute><MechdslOverviewRoute /></LazyRoute>} />
@@ -189,9 +185,7 @@ function Shell() {
         <Route
           path="/failure-memory/*"
           element={
-            <FailureMemoryGate>
-              <AppShell currentMode="failure-memory" onModeChange={setCurrentMode} />
-            </FailureMemoryGate>
+            <AppShell currentMode="failure-memory" onModeChange={setCurrentMode} gate={FailureMemoryGate} />
           }
         >
           <Route index element={<LazyRoute><FailureMemoryOverviewRoute /></LazyRoute>} />
@@ -211,9 +205,7 @@ function Shell() {
         <Route
           path="/records/*"
           element={
-            <RecordsGate>
-              <AppShell currentMode="records" onModeChange={setCurrentMode} />
-            </RecordsGate>
+            <AppShell currentMode="records" onModeChange={setCurrentMode} gate={RecordsGate} />
           }
         >
           <Route index element={<LazyRoute><RecordsOverviewRoute /></LazyRoute>} />

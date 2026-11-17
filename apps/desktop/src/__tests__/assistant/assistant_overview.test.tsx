@@ -39,7 +39,7 @@ afterEach(() => cleanup());
 /** Shows the current `useLocation().pathname` so assertions can read it. */
 function LocationProbe() {
   const loc = useLocation();
-  return <div data-testid="probe-path">{loc.pathname}</div>;
+  return <div data-testid="probe-path">{loc.pathname + loc.search}</div>;
 }
 
 describe("Assistant sub-routes + overview content", () => {
@@ -125,7 +125,7 @@ describe("Assistant sub-routes + overview content", () => {
     // Each remaining mapping (one render per click to keep state clean).
     const cases: Array<[string, string]> = [
       ["Create a source batch", ASSISTANT_ROUTE_BATCHES],
-      ["Find related papers", ASSISTANT_ROUTE_DISCOVER],
+      ["Find related papers", `${ASSISTANT_ROUTE_BATCHES}?tab=related`],
       ["Run a workflow", ASSISTANT_ROUTE_WORKFLOWS],
       ["Open recent outputs", ASSISTANT_ROUTE_OUTPUTS],
     ];

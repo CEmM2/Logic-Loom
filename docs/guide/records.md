@@ -32,5 +32,8 @@ scope = "shared:notes"
 # home = "/path/to/records-home" # agent/shared scopes: default AKMS_RECORDS_HOME or ~/.knowledge/records
 ```
 
+Until a store is listed, the Records tab shows this example with a **Copy snippet**
+button and the path of your `config.toml`. Restart Logic-Loom after editing the file.
+
 Logic-Loom opens stores read-only and never builds or changes their search index. The
 graph uses only the standard record fields, not the schema-specific payload.

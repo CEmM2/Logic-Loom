@@ -1,16 +1,11 @@
 /**
  * Artifact history panel.
  *
- * Accumulates each successful compile response in React state and renders the
- * list of prior compiled artifacts for the current session.
- *
- * IMPORTANT — SESSION-SCOPED ONLY:
- *   There is no backend `/api/learn/history` or `/api/learn/list` endpoint.
- *   `GET /api/learn/status`, `/profiles`, `/exporters`, `/compile`, `/export`,
- *   and `/artifacts/{id}/{path}` are the only endpoints (routes/learn.py). This
- *   panel therefore accumulates history in React state only — it is NOT persisted
- *   across page reloads or Tauri restarts. A future backend listing endpoint
- *   (if added) would be the right place to persist cross-session history.
+ * Lists the artifacts compiled on this computer, newest first. There is no
+ * backend history endpoint (routes/learn.py has none), so the list is kept in
+ * the window's localStorage: it survives reloads and restarts of the app, is
+ * capped at HISTORY_LIMIT entries, and degrades to session-only when storage
+ * is unavailable (every access is wrapped in try/catch).
  *
  * Each entry carries the key fields from `LearnCompileResponse`:
  *   - artifact_id  — deterministic hash derived by the backend from request + graph
@@ -38,8 +33,44 @@ interface Props {
   entries: ArtifactHistoryEntry[];
 }
 
+export const HISTORY_STORAGE_KEY = "logic-loom.learn.history.v1";
+export const HISTORY_LIMIT = 50;
+
+function isEntry(value: unknown): value is ArtifactHistoryEntry {
+  if (!value || typeof value !== "object") return false;
+  const e = value as Record<string, unknown>;
+  return (
+    typeof e.artifact_id === "string" &&
+    typeof e.timestamp === "number" &&
+    Array.isArray(e.exports)
+  );
+}
+
+/** Read the saved history; an empty list when storage is missing or corrupt. */
+export function loadArtifactHistory(): ArtifactHistoryEntry[] {
+  try {
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isEntry).slice(-HISTORY_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Save the history (oldest first), keeping the newest HISTORY_LIMIT entries. */
+export function saveArtifactHistory(entries: ArtifactHistoryEntry[]): ArtifactHistoryEntry[] {
+  const kept = entries.slice(-HISTORY_LIMIT);
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(kept));
+  } catch {
+    // Storage full or blocked: keep the in-memory list only.
+  }
+  return kept;
+}
+
 /**
- * Renders the session-scoped artifact history list.
+ * Renders the saved artifact history list.
  *
  * Shown in reverse-chronological order (newest first). Each row shows:
  *   - topic + generation_option
@@ -62,10 +93,10 @@ export function ArtifactHistoryPanel({ entries }: Props) {
       className="flex flex-col gap-2"
     >
       <div className="text-xs uppercase tracking-wide text-muted-foreground">
-        Session history ({entries.length} compile{entries.length === 1 ? "" : "s"})
+        History ({entries.length} compile{entries.length === 1 ? "" : "s"})
       </div>
       <p className="text-[10px] text-muted-foreground/70">
-        Session-scoped — not persisted across reloads (no backend history endpoint).
+        Kept on this computer; the latest {HISTORY_LIMIT} compiles are listed.
       </p>
       <ul className="space-y-1">
         {reversed.map((entry) => (
@@ -96,7 +127,7 @@ export function ArtifactHistoryPanel({ entries }: Props) {
                 className="shrink-0 text-[10px] text-muted-foreground"
                 dateTime={new Date(entry.timestamp).toISOString()}
               >
-                {new Date(entry.timestamp).toLocaleTimeString()}
+                {new Date(entry.timestamp).toLocaleString()}
               </time>
             </div>
             <div className="mt-0.5 flex gap-4 text-[10px] text-muted-foreground">
