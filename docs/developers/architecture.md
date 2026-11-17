@@ -9,7 +9,15 @@ The desktop app is a Tauri shell that starts the Python sidecar as a child proce
    bundled `logic-loom-api` binary from the app's resources in a release build.
 2. The sidecar picks a free port and prints `LOGIC_LOOM_API_READY:<port>` on stdout.
 3. The shell parses that line, stores the port and emits the `logic-loom://ready` event.
-4. On window close the shell sends SIGTERM, then SIGKILL if the sidecar does not exit.
+4. On window close the shell sends SIGTERM, then SIGKILL if the sidecar does not exit
+   (on Windows it kills the whole process tree with `taskkill /T`).
+5. If the shell dies without closing the window (crash, `kill -9`, force quit), the
+   sidecar still exits: the shell starts it with `--exit-on-stdin-eof` and a stdin pipe it
+   never writes to, so the OS closes the pipe when the shell goes away and the sidecar
+   sees end-of-file. Children the sidecar starts get `/dev/null` as stdin instead.
+
+Only one copy of the app runs at a time (`tauri-plugin-single-instance`): launching it
+again focuses the existing window.
 
 The handshake line is a contract between `handshake.py` and `apps/desktop/src-tauri/src/sidecar.rs`.
 Changing its format means changing both.

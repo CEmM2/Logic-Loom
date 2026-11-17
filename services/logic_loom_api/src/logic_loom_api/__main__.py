@@ -20,6 +20,7 @@ from .handshake import (
     announce_ready,
     bind_random_port,
     install_shutdown_handlers,
+    watch_parent_stdin,
     write_port_file,
 )
 
@@ -73,6 +74,11 @@ def main() -> None:
     mode.add_argument("--port", type=int, default=None, help="Fixed port (dev mode).")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--config", default=None, help="Path to Logic-Loom config.toml.")
+    parser.add_argument(
+        "--exit-on-stdin-eof",
+        action="store_true",
+        help="Exit when stdin closes (the desktop shell's parent-death signal).",
+    )
     args = parser.parse_args()
 
     if args.config:
@@ -95,6 +101,8 @@ def main() -> None:
     from .main import api
 
     install_shutdown_handlers()
+    if args.exit_on_stdin_eof:
+        watch_parent_stdin()
 
     if args.auto_port:
         sock, port = bind_random_port(args.host)

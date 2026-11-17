@@ -11,7 +11,19 @@ use tauri::{Emitter, Manager, RunEvent, WindowEvent};
 pub fn run() {
     let state: Arc<SidecarState> = Arc::new(SidecarState::default());
 
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    // Must be the first plugin registered. A second launch exits right away and
+    // this callback runs in the first instance instead.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.unminimize();
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }));
+
+    let app = builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(state)

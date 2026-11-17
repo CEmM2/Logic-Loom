@@ -11,6 +11,7 @@ use std::io::{BufRead, BufReader};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -47,6 +48,10 @@ pub struct SidecarState {
     /// `logic_loom_api/auth.py`). Handed to the frontend only through the
     /// `get_api_token` command, never through an event or the handshake line.
     pub token: Mutex<Option<String>>,
+    /// Set by `shutdown`. A `launch` that finishes spawning after this is set
+    /// kills its child instead of storing it, so a window closed during
+    /// startup cannot orphan the sidecar.
+    pub shutting_down: AtomicBool,
 }
 
 /// Environment variable the sidecar reads its token from. Contract with
@@ -101,7 +106,8 @@ fn command_for_sidecar(_app: &AppHandle, _root: &Path) -> Result<Command, Sideca
             .arg("--directory")
             .arg(_root)
             .arg("logic-loom-api")
-            .arg("--auto-port");
+            .arg("--auto-port")
+            .arg("--exit-on-stdin-eof");
         Ok(cmd)
     }
 
@@ -109,7 +115,7 @@ fn command_for_sidecar(_app: &AppHandle, _root: &Path) -> Result<Command, Sideca
     {
         let sidecar = bundled_sidecar_path(_app)?;
         let mut cmd = Command::new(sidecar);
-        cmd.arg("--auto-port");
+        cmd.arg("--auto-port").arg("--exit-on-stdin-eof");
         Ok(cmd)
     }
 }
@@ -197,7 +203,13 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
     cmd.env(TOKEN_ENV, &token);
     augment_path_for_cli_providers(&mut cmd);
     configure_sidecar_command(&mut cmd);
-    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    // stdin is a pipe we never write to. Its write end lives in this process
+    // (inside `Child`), so the OS closes it when we exit for any reason,
+    // crash and `kill -9` included, and the sidecar's `--exit-on-stdin-eof`
+    // watcher sees EOF and shuts down. This is what stops orphaned sidecars.
+    cmd.stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
     let mut child = cmd.spawn().map_err(SidecarError::Spawn)?;
 
@@ -206,8 +218,20 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
     let pid = child.id();
 
     // Stash child early so shutdown can find it even if handshake fails later.
+    // Checked under the child lock: `shutdown` sets the flag before taking the
+    // lock, so either it sees this child or we see the flag.
     let state = app.state::<Arc<SidecarState>>();
-    *state.child.lock().unwrap() = Some(child);
+    {
+        let mut guard = state.child.lock().unwrap();
+        if state.shutting_down.load(Ordering::SeqCst) {
+            drop(guard);
+            terminate_child(child);
+            return Err(SidecarError::HandshakeFailed(
+                "app is shutting down; sidecar stopped".into(),
+            ));
+        }
+        *guard = Some(child);
+    }
     *state.token.lock().unwrap() = Some(token);
 
     // Drain stderr in a separate thread; just forward to our stderr.
@@ -261,15 +285,36 @@ fn parse_ready_line(line: &str) -> Option<u16> {
     rest.parse().ok()
 }
 
-/// Send SIGTERM, wait up to 5s, then SIGKILL.
+/// Stop the sidecar: SIGTERM, wait up to 5s, then SIGKILL.
 pub fn shutdown(app: &AppHandle) {
     let state = app.state::<Arc<SidecarState>>();
+    state.shutting_down.store(true, Ordering::SeqCst);
     *state.port.lock().unwrap() = None;
     *state.token.lock().unwrap() = None;
-    let mut guard = state.child.lock().unwrap();
-    let Some(mut child) = guard.take() else {
-        return;
-    };
+    let child = state.child.lock().unwrap().take();
+    if let Some(child) = child {
+        terminate_child(child);
+    }
+}
+
+/// Kill the whole tree under `pid` on Windows. `Child::kill` only reaches the
+/// PyInstaller bootloader, leaving the Python process it started running.
+#[cfg(windows)]
+fn kill_process_tree(pid: u32) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let _ = Command::new("taskkill")
+        .args(["/PID", &pid.to_string(), "/T", "/F"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+/// SIGTERM the process group, wait up to 5s, then SIGKILL (Unix); kill the
+/// process tree (Windows).
+fn terminate_child(mut child: Child) {
     let pid = child.id();
     log::info!("shutting down logic-loom-api pid={pid}");
 
@@ -277,9 +322,13 @@ pub fn shutdown(app: &AppHandle) {
     {
         signal_process_group(pid, libc::SIGTERM);
     }
-    #[cfg(not(unix))]
+    #[cfg(windows)]
     {
-        // Windows fallback: best-effort kill (SIGKILL equivalent).
+        kill_process_tree(pid);
+        let _ = child.kill();
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
         let _ = child.kill();
     }
 
