@@ -796,7 +796,7 @@ wheels = [
 
 [[package]]
 name = "logic-loom"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 
 [package.optional-dependencies]
@@ -826,7 +826,7 @@ docs = [
 
 [[package]]
 name = "logic-loom-api"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "services/logic_loom_api" }
 dependencies = [
     { name = "anyio" },

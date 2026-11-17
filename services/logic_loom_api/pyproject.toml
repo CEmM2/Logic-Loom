@@ -1,6 +1,6 @@
 [project]
 name = "logic-loom-api"
-version = "0.3.2"
+version = "0.3.3"
 description = "Façade FastAPI service for Logic-Loom: mounts AKMS batch picker, wraps zsum CLI, serves vault."
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }

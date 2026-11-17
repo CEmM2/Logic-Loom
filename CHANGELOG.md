@@ -5,6 +5,26 @@
 > [documentation site](https://cemm2.github.io/Logic-Loom/); the entries below
 > summarise them.
 
+## v0.3.3
+
+The rest of the v0.3.1 QA pass. Full notes:
+[`docs/release_notes/v0.3.3.md`](./docs/release_notes/v0.3.3.md).
+
+- **No dead ends:** mode setup messages keep the mode switcher and side menu,
+  with a Copy snippet action for Failure Memory and Records; related papers,
+  batch run history, View in Graph and zsum Collections lead somewhere.
+- **The Picker lists every batch** (app-created and starter batches were
+  missing) and picks up changes without a restart.
+- **Fixed:** vault preview math and nested frontmatter, prompt Preview (always
+  empty), graph review message, starter zsum config, hidden vault entries.
+- **Clearer messages:** Discover provider failures, provider test advice,
+  Zotero not connected, Open in Editor result, MechDSL status.
+- **API:** Discover input validation and `provider_errors`, picker routes in
+  OpenAPI, graph refresh stream is POST, UTC graph status, zsum test errors,
+  learn export stub removed.
+- **Polish:** app title and icon, Linux package description, Logo switch for
+  the backdrop logo, dark-mode contrast, Ctrl-K fixes.
+
 ## v0.3.2
 
 Security and reliability fixes from the v0.3.1 QA pass. Full notes:
