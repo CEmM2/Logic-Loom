@@ -7,6 +7,7 @@ import errno
 import logging
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
@@ -20,6 +21,7 @@ from sse_starlette.sse import EventSourceResponse
 from ..adapters import graph_adapter
 from ..config import Settings
 from ..deps import get_settings
+from ..safe_paths import resolve_within
 
 logger = logging.getLogger(__name__)
 
@@ -229,12 +231,39 @@ def list_files(settings: Settings = Depends(get_settings)) -> list[dict[str, Any
     return results
 
 
+def _node_roots(settings: Settings) -> list[Path]:
+    """Folders whose files the node routes may read or open.
+
+    The configured node folders, the vault, the AKMS graph vault and the
+    shipped established library. Anything else (``/etc/passwd``, a binary
+    elsewhere on disk) is refused with a 422 before the filesystem is touched.
+    """
+    roots: list[Path] = list(settings.nodes_folders)
+    if settings.vault_path is not None:
+        roots.append(settings.vault_path)
+    try:
+        roots.append(settings.effective_akms_global_vault())
+    except Exception:  # noqa: BLE001 — degrade: just omit this root
+        pass
+    established = graph_adapter.established_library_root()
+    if established is not None:
+        roots.append(established)
+    return roots
+
+
 @router.get("/file")
-def read_file(path: str = Query(...)) -> dict[str, Any]:
-    p = Path(path).expanduser().resolve()
+def read_file(
+    path: str = Query(...), settings: Settings = Depends(get_settings)
+) -> dict[str, Any]:
+    p = resolve_within(path, _node_roots(settings), kind="node file path")
     if not p.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {path}")
-    text = p.read_text(encoding="utf-8")
+    try:
+        text = p.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=415, detail=f"Not a UTF-8 text file: {p.name}"
+        ) from None
     fm = _parse_frontmatter(text)
     return {"path": str(p), "content": text, "frontmatter": fm}
 
@@ -248,7 +277,9 @@ def open_in_editor(
     req: OpenRequest, settings: Settings = Depends(get_settings)
 ) -> dict[str, str]:
     """Open the given file in the configured editor or the system default."""
-    p = Path(req.path).expanduser().resolve()
+    # Restricted to the node folders: the system opener would otherwise
+    # launch any file it is pointed at, executables included.
+    p = resolve_within(req.path, _node_roots(settings), kind="node file path")
     if not p.exists():
         raise HTTPException(status_code=404, detail=f"File not found: {req.path}")
 
@@ -263,7 +294,13 @@ def open_in_editor(
         )
 
     if settings.nodes_editor:
-        cmd = [*settings.nodes_editor.split(), str(p)]
+        try:
+            editor_argv = shlex.split(settings.nodes_editor)
+        except ValueError:
+            raise HTTPException(
+                status_code=400, detail="nodes_editor setting does not parse as a command"
+            ) from None
+        cmd = [*editor_argv, str(p)]
     elif os.name == "nt":
         subprocess.Popen(["cmd", "/c", "start", "", str(p)], start_new_session=True)
         return {"status": "opened", "cmd": f"start {p}"}

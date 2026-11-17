@@ -49,6 +49,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from ..safe_paths import InvalidIdentifier, ensure_under, safe_id
 from ..config import Settings
 from ..workflows import (
     WORKFLOW_SUFFIX,
@@ -80,12 +81,19 @@ def _user_workflows_dir() -> Path:
 
 def _user_workflow_path(workflow_id: str) -> Path:
     """Return the on-disk path for a user workflow by id."""
-    return _user_workflows_dir() / f"{workflow_id}{WORKFLOW_SUFFIX}"
+    root = _user_workflows_dir()
+    target = root / f"{safe_id(workflow_id, kind='workflow id')}{WORKFLOW_SUFFIX}"
+    return ensure_under(root, target, kind="workflow id")
 
 
 def _read_user_workflow(workflow_id: str) -> WorkflowDefinition | None:
     """Read a user workflow from disk, or return None if absent."""
-    path = _user_workflow_path(workflow_id)
+    try:
+        path = _user_workflow_path(workflow_id)
+    except InvalidIdentifier:
+        # An id that could never name a user file simply isn't one; the
+        # caller falls through to the built-in catalogue / 404.
+        return None
     if not path.exists():
         return None
     try:

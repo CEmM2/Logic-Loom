@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import shlex
+import shutil
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -11,7 +13,7 @@ from typing import Any, Literal
 import httpx
 import tomli_w
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .. import __version__
 from ..config import (
@@ -26,6 +28,22 @@ from ..config import (
 from ..deps import get_settings, reload_settings
 
 router = APIRouter()
+
+# API keys never leave the sidecar. GET /config reports a set key as this mask
+# (and an unset one as null); POST /config treats the mask as "unchanged", so a
+# Settings form that posts back what it loaded leaves the stored key alone.
+SECRET_MASK = "••••••••"
+SECRET_FIELDS: tuple[str, ...] = (
+    "openalex_api_key",
+    "semantic_scholar_api_key",
+    "anthropic_api_key",
+    "openai_api_key",
+    "google_api_key",
+)
+
+
+def _mask(value: str | None) -> str | None:
+    return SECRET_MASK if value else None
 
 _STARTED_AT = dt.datetime.now(dt.UTC).isoformat()
 
@@ -73,22 +91,20 @@ def config_get(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
         # Nodes Review
         "nodes_folders": [str(f) for f in settings.nodes_folders],
         "nodes_editor": settings.nodes_editor,
-        # Assistant mode. API keys round-trip as-is;
-        # the frontend masks them in the form. assistant_workspace defaults
+        # Assistant mode. API keys come back masked (SECRET_MASK) or null. assistant_workspace defaults
         # to the resolver result when unset so the UI can show the effective
         # path without forcing the user to pick one.
         "openalex_user_email": settings.openalex_user_email,
-        "openalex_api_key": settings.openalex_api_key,
-        "semantic_scholar_api_key": settings.semantic_scholar_api_key,
+        "openalex_api_key": _mask(settings.openalex_api_key),
+        "semantic_scholar_api_key": _mask(settings.semantic_scholar_api_key),
         "assistant_workspace": str(settings.assistant_workspace) if settings.assistant_workspace else None,
         "assistant_workspace_colocate": settings.assistant_workspace_colocate,
         "assistant_workspace_effective": str(settings.assistant_workspace_path()),
-        # Host LLM provider. Keys round-trip as-is; the frontend masks
-        # them. llm_provider is the global; zsum_/nodegen_ are per-consumer
+        # Host LLM provider. Keys come back masked (SECRET_MASK) or null. llm_provider is the global; zsum_/nodegen_ are per-consumer
         # overrides; learn_llm_provider is the legacy back-compat alias.
-        "anthropic_api_key": settings.anthropic_api_key,
-        "openai_api_key": settings.openai_api_key,
-        "google_api_key": settings.google_api_key,
+        "anthropic_api_key": _mask(settings.anthropic_api_key),
+        "openai_api_key": _mask(settings.openai_api_key),
+        "google_api_key": _mask(settings.google_api_key),
         "llm_provider": settings.llm_provider,
         "learn_llm_provider": settings.learn_llm_provider,
         "zsum_llm_provider": settings.zsum_llm_provider,
@@ -245,6 +261,35 @@ class ConfigUpdate(BaseModel):
     nodegen_llm_provider: str | None = None
     learn_llm_custom_clis: dict[str, str] | None = None
 
+    @field_validator("nodes_editor", "zsum_python_cmd")
+    @classmethod
+    def _command_must_resolve(cls, v: str | None) -> str | None:
+        """A command is run as an argv list (never through a shell), so it must
+        split cleanly and its program must exist. Empty clears the override."""
+        if v is None or v == "":
+            return v
+        argv = _split_command(v)
+        program = argv[0]
+        if shutil.which(program) is None and not Path(program).expanduser().is_file():
+            raise ValueError(f"program not found: {program!r}")
+        return v
+
+
+# learn_llm_custom_clis is deliberately not validated here: a custom CLI may be
+# installed later, and discovery already degrades a malformed one to
+# "unavailable" (host_llm.discovery._safe_split).
+def _split_command(command: str, *, label: str | None = None) -> list[str]:
+    where = f" for {label!r}" if label else ""
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        raise ValueError(f"command{where} does not parse: {exc}") from None
+    if not argv:
+        raise ValueError(f"command{where} is empty")
+    if any("\x00" in a for a in argv):
+        raise ValueError(f"command{where} contains a NUL byte")
+    return argv
+
 
 logger = logging.getLogger(__name__)
 
@@ -381,6 +426,9 @@ def config_post(payload: ConfigUpdate) -> dict[str, Any]:
         with target.open("rb") as f:
             existing = tomllib.load(f)
     raw = payload.model_dump(exclude_unset=True)
+    for key in SECRET_FIELDS:
+        if raw.get(key) == SECRET_MASK:
+            raw.pop(key)  # the form echoed the mask back: keep the stored key
     delta: dict[str, Any] = {}
     cleared: list[str] = []
     for k, v in raw.items():

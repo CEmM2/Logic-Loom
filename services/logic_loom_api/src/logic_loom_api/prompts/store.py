@@ -28,6 +28,8 @@ import re
 from importlib import resources
 from importlib.resources.abc import Traversable
 from pathlib import Path
+
+from ..safe_paths import ensure_under, safe_id
 from typing import Iterable
 
 from pydantic import ValidationError
@@ -108,11 +110,13 @@ class PromptStore:
 
     def variant_path(self, slot_id: str, variant_id: str) -> Path:
         """Return the on-disk path for a (slot, variant) pair."""
-        return self.variant_dir(slot_id) / f"{variant_id}{VARIANT_SUFFIX}"
+        target = self.variant_dir(slot_id) / f"{safe_id(variant_id, kind='variant id')}{VARIANT_SUFFIX}"
+        return ensure_under(self.variants_root, target, kind="variant id")
 
     def profile_path(self, profile_id: str) -> Path:
         """Return the on-disk path for a profile id."""
-        return self.profiles_root / f"{profile_id}{PROFILE_SUFFIX}"
+        target = self.profiles_root / f"{safe_id(profile_id, kind='profile id')}{PROFILE_SUFFIX}"
+        return ensure_under(self.profiles_root, target, kind="profile id")
 
     def ensure_dirs(self) -> None:
         """Create the workspace subtree if absent. Idempotent."""
@@ -122,7 +126,8 @@ class PromptStore:
 
     def schema_path(self, schema_id: str) -> Path:
         """Return the on-disk path for a schema id."""
-        return self.schemas_root / f"{schema_id}{SCHEMA_SUFFIX}"
+        target = self.schemas_root / f"{safe_id(schema_id, kind='schema id')}{SCHEMA_SUFFIX}"
+        return ensure_under(self.schemas_root, target, kind="schema id")
 
     # ------------------------------------------------------------------
     # Variants

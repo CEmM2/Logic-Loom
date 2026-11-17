@@ -244,6 +244,7 @@ export default function AssistantSettingsRoute() {
               type="password"
               name="openalex_api_key"
               value={draft.openalex_api_key}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) =>
                 setDraft({ ...draft, openalex_api_key: e.target.value })
               }
@@ -274,6 +275,7 @@ export default function AssistantSettingsRoute() {
               type="password"
               name="semantic_scholar_api_key"
               value={draft.semantic_scholar_api_key}
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) =>
                 setDraft({
                   ...draft,

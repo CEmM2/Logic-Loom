@@ -344,6 +344,9 @@ function LlmProviderSection() {
               placeholder="unset → CLI route"
               className="flex-1 rounded border border-border bg-background px-2 py-1 font-mono text-xs"
               value={keys[field]}
+              // A saved key comes back as a mask; select it on focus so typing
+              // replaces it instead of appending to it.
+              onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => setKeys({ ...keys, [field]: e.target.value })}
             />
           </label>

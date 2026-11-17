@@ -24,7 +24,8 @@ export type AppConfig = {
   // Nodes Review
   nodes_folders: string[];
   nodes_editor: string | null;
-  // Assistant mode.
+  // Assistant mode. API keys are never returned: a saved key reads as
+  // SECRET_MASK, an unset one as null. Posting the mask back leaves it as is.
   openalex_user_email: string | null;
   openalex_api_key: string | null;
   semantic_scholar_api_key: string | null;
@@ -192,3 +193,6 @@ export async function testAssistantProvider(provider: AssistantTestProvider) {
     `/api/app/assistant/test-connection/${provider}`,
   );
 }
+
+/** What GET /api/app/config returns in place of a saved API key. */
+export const SECRET_MASK = "••••••••";
