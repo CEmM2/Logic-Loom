@@ -15,7 +15,7 @@ license = { text = "MIT" }
 # must return it, not raise). `akms[failure-memory]` is the published AKMS
 # package's own extra: it pulls `akms-failure-memory` at the matching version
 # from PyPI, and `uv.lock` records the exact build.
-failure-memory = ["akms[failure-memory]>=0.4.0,<0.5", "pytest>=9.0.2"]
+failure-memory = ["akms[failure-memory]>=0.4.0,<0.5", "pytest>=9.2.0"]
 
 [dependency-groups]
 # The docs site (mkdocs.yml). `uv sync --group docs`; see docs/developers/index.md.
