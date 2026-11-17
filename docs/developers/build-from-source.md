@@ -121,7 +121,8 @@ Under `apps/desktop/src-tauri/target/release/bundle/`:
 Ship a checksum manifest with every set of artifacts:
 
 ```bash
-shasum -a 256 Logic-Loom-* > SHA256SUMS.txt
+sha256sum Logic-Loom* > SHA256SUMS.txt      # Linux
+shasum -a 256 Logic-Loom* > SHA256SUMS.txt  # macOS
 ```
 
 ## Troubleshooting

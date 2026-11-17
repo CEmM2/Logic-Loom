@@ -28,7 +28,7 @@ Each mode is described in the [user guide](https://cemm2.github.io/Logic-Loom/gu
 ## Install
 
 Download the installer for your platform from the
-[Releases page](https://github.com/CEmM2/Logic-Loom/releases/latest), then follow
+[installer releases page](https://github.com/CEmM2/Logic-Loom-releases/releases/latest), then follow
 [Install](https://cemm2.github.io/Logic-Loom/install/index.html) and
 [First run](https://cemm2.github.io/Logic-Loom/install/first-run.html).
 

@@ -36,4 +36,4 @@ show a setup message instead of failing.
 - **Working on the code:** [Developer setup](developers/index.md) and
   [Architecture](developers/architecture.md).
 - **What changed:** [Changelog](changelog.md) and the
-  [GitHub Releases](https://github.com/CEmM2/Logic-Loom/releases).
+  [installer releases](https://github.com/CEmM2/Logic-Loom-releases/releases).

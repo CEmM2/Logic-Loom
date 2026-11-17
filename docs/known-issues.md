@@ -1,7 +1,7 @@
 # Known issues
 
 Caveats that apply across releases. Anything specific to one version is in that
-release's notes on the [Releases page](https://github.com/CEmM2/Logic-Loom/releases).
+release's notes on the [Releases page](https://github.com/CEmM2/Logic-Loom-releases/releases).
 
 ## Install warnings
 

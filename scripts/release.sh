@@ -6,7 +6,7 @@ set -euo pipefail
 # Release architecture (see README "## Releases"):
 #   * the source repository (this one) — on a `v*` tag push, its
 #     `release.yml` cuts a SOURCE-ONLY GitHub Release (`.tar.gz` + `.zip` +
-#     SHA256SUMS). No binaries.
+#     SHA256SUMS.txt). No binaries.
 #   * CEmM2/Logic-Loom-releases (public) — on the same `v*` tag pushed there,
 #     its `build-binaries.yml` checks out the private source at the tag (via the
 #     SOURCE_REPO_PAT secret), builds macOS/Linux/Windows bundles, and attaches

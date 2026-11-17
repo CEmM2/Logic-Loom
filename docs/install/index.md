@@ -19,18 +19,32 @@ any of these for you:
 ## Download
 
 Get the latest installer from the
-[Logic-Loom Releases page](https://github.com/CEmM2/Logic-Loom/releases/latest). Each
-release attaches the platform installers and a `SHA256SUMS.txt` manifest.
+[installer releases page](https://github.com/CEmM2/Logic-Loom-releases/releases/latest).
+Each release attaches the platform installers and a `SHA256SUMS.txt` manifest.
 
-!!! note "Older releases"
-    Releases up to 0.3.0 were published from
+!!! note "Two release pages"
+    Installers are built and published from
     [CEmM2/Logic-Loom-releases](https://github.com/CEmM2/Logic-Loom-releases/releases).
-    That repository is retired after 0.3.0.
+    The [source repository's releases](https://github.com/CEmM2/Logic-Loom/releases)
+    carry only the source archives for the same version.
 
-Check a download against the manifest before installing:
+Check a download against the manifest before installing. On Linux:
+
+```bash
+sha256sum -c SHA256SUMS.txt --ignore-missing
+```
+
+On macOS:
 
 ```bash
 shasum -a 256 -c SHA256SUMS.txt --ignore-missing
+```
+
+On Windows (PowerShell), compare the printed hash with the matching line in
+`SHA256SUMS.txt`:
+
+```powershell
+Get-FileHash .\Logic-Loom_<version>_x64-setup.exe -Algorithm SHA256
 ```
 
 Not every platform is guaranteed on every release. Check the assets attached to the

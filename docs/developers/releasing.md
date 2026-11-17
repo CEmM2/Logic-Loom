@@ -5,17 +5,17 @@ A release is a version tag, `v<major>.<minor>.<patch>` (with `-alpha.N`, `-beta.
 
 | Workflow | What it does on a `v*` tag |
 | --- | --- |
-| `release.yml` | Creates a GitHub Release with the source archives and `SHA256SUMS` |
+| `release.yml` | Creates a GitHub Release with the source archives and `SHA256SUMS.txt` |
 | The binary build | Builds the macOS, Linux and Windows packages and attaches them with `SHA256SUMS.txt` |
 | `docs.yml` | Builds this site strictly and publishes it to GitHub Pages (public repository only, not for pre-release tags) |
 
 Pre-release tags are marked as pre-releases automatically.
 
-!!! note "Release model is changing"
-    Up to 0.3.0, binaries were built in the separate
+!!! note "Where binaries are built"
+    Installers are built in the separate
     [CEmM2/Logic-Loom-releases](https://github.com/CEmM2/Logic-Loom-releases) repository,
-    and `scripts/release.sh` pushed the tag to both repositories. That repository is retired
-    after 0.3.0, and releases move to [CEmM2/Logic-Loom](https://github.com/CEmM2/Logic-Loom).
+    which checks out the public source at the same tag and publishes the binaries on its own
+    Releases page. The tag must exist in both repositories.
 
 ## Before tagging
 

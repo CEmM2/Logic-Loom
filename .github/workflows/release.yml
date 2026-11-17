@@ -71,9 +71,9 @@ jobs:
           prefix="Logic-Loom-${ver}/"
           git archive --format=tar.gz --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.tar.gz" HEAD
           git archive --format=zip   --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.zip"    HEAD
-          ( cd dist && { command -v sha256sum >/dev/null 2>&1 && sha256sum * || shasum -a 256 *; } > SHA256SUMS )
+          ( cd dist && { command -v sha256sum >/dev/null 2>&1 && sha256sum * || shasum -a 256 *; } > SHA256SUMS.txt )
           ls -lh dist/
-          cat dist/SHA256SUMS
+          cat dist/SHA256SUMS.txt
 
       - name: Locate release notes
         id: notes
