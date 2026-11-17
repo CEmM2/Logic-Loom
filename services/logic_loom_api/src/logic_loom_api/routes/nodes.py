@@ -7,7 +7,6 @@ import errno
 import logging
 import os
 import re
-import shlex
 import subprocess
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
@@ -21,7 +20,7 @@ from sse_starlette.sse import EventSourceResponse
 from ..adapters import graph_adapter
 from ..config import Settings
 from ..deps import get_settings
-from ..safe_paths import resolve_within
+from ..safe_paths import resolve_within, split_command
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +294,7 @@ def open_in_editor(
 
     if settings.nodes_editor:
         try:
-            editor_argv = shlex.split(settings.nodes_editor)
+            editor_argv = split_command(settings.nodes_editor)
         except ValueError:
             raise HTTPException(
                 status_code=400, detail="nodes_editor setting does not parse as a command"

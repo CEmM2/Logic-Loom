@@ -82,7 +82,8 @@ _BYTES_ENCODER = {bytes: lambda b: b.decode("utf-8", errors="replace")}
 
 
 def _is_malformed_path_error(exc: BaseException) -> bool:
-    if isinstance(exc, ValueError) and "null byte" in str(exc):
+    # POSIX says "embedded null byte", Windows "embedded null character".
+    if isinstance(exc, ValueError) and "embedded null" in str(exc):
         return True
     return isinstance(exc, OSError) and exc.errno == errno.ENAMETOOLONG
 

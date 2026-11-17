@@ -16,7 +16,9 @@ handlers in :mod:`logic_loom_api.errors` turn into a 422.
 
 from __future__ import annotations
 
+import os
 import re
+import shlex
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -74,3 +76,18 @@ def resolve_within(raw: str, roots: Iterable[Path], *, kind: str = "path") -> Pa
         if resolved == r or r in resolved.parents:
             return resolved
     raise InvalidIdentifier(f"{kind} is outside the configured folders")
+
+
+def split_command(command: str) -> list[str]:
+    """Split a user-configured command line into an argv list.
+
+    POSIX rules everywhere except Windows, where backslashes are path
+    separators: there ``shlex`` runs in non-POSIX mode and the quotes it keeps
+    around a token (``"C:\\Program Files\\x.exe"``) are stripped. Raises
+    ``ValueError`` on unbalanced quotes.
+    """
+    if os.name != "nt":
+        return shlex.split(command)
+    parts = shlex.split(command, posix=False)
+    return [p[1:-1] if len(p) >= 2 and p[0] == p[-1] and p[0] in "\"'" else p for p in parts]
+

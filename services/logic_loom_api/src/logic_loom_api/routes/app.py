@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import shlex
 import shutil
 import time
 from pathlib import Path
@@ -26,6 +25,7 @@ from ..config import (
     is_placeholder,
 )
 from ..deps import get_settings, reload_settings
+from ..safe_paths import split_command
 
 router = APIRouter()
 
@@ -281,7 +281,7 @@ class ConfigUpdate(BaseModel):
 def _split_command(command: str, *, label: str | None = None) -> list[str]:
     where = f" for {label!r}" if label else ""
     try:
-        argv = shlex.split(command)
+        argv = split_command(command)
     except ValueError as exc:
         raise ValueError(f"command{where} does not parse: {exc}") from None
     if not argv:

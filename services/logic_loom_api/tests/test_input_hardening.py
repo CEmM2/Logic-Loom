@@ -7,6 +7,7 @@ API keys in GET /api/app/config, command settings, and the error envelope
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -35,7 +36,8 @@ def env(tmp_path: Path):
         "LOGIC_LOOM_CONFIG": str(tmp_path / "config.toml"),
         "LOGIC_LOOM_VAULT_PATH": str(vault),
         "LOGIC_LOOM_AKMS_WORKSPACE": str(workspace),
-        "LOGIC_LOOM_NODES_FOLDERS": f'["{nodes}"]',
+        # json.dumps escapes Windows backslashes.
+        "LOGIC_LOOM_NODES_FOLDERS": json.dumps([str(nodes)]),
     }
     with patch.dict(os.environ, values):
         reload_settings()
@@ -215,3 +217,16 @@ def test_nul_byte_reaching_the_filesystem_is_422() -> None:
     r = TestClient(_boom_app(), raise_server_exceptions=False).get("/nul")
     assert r.status_code == 422
     assert r.json()["error"]["code"] == "invalid_identifier"
+
+
+def test_split_command_keeps_windows_backslashes(monkeypatch: pytest.MonkeyPatch) -> None:
+    from logic_loom_api import safe_paths
+
+    monkeypatch.setattr(safe_paths.os, "name", "nt")
+    assert safe_paths.split_command(r'"C:\Program Files\Ed\ed.exe" -w') == [
+        r"C:\Program Files\Ed\ed.exe",
+        "-w",
+    ]
+    assert safe_paths.split_command(r"C:\tools\ed.exe") == [r"C:\tools\ed.exe"]
+    with pytest.raises(ValueError):
+        safe_paths.split_command('"unterminated')
