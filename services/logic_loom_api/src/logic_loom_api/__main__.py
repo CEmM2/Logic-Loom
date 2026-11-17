@@ -54,7 +54,6 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == RUN_MODULE_FLAG:
         raise SystemExit(_run_module(sys.argv[2:]))
 
-
     # Hidden runtime-package install mode. Frozen onefile builds have no
     # `python -m pip`, so the in-app "Install taichi" action re-enters this
     # binary with --install-runtime-pkg, which runs pip in-process and exits
@@ -73,7 +72,9 @@ def main() -> None:
     )
     mode.add_argument("--port", type=int, default=None, help="Fixed port (dev mode).")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--config", default=None, help="Path to Logic-Loom config.toml.")
+    parser.add_argument(
+        "--config", default=None, help="Path to Logic-Loom config.toml."
+    )
     parser.add_argument(
         "--exit-on-stdin-eof",
         action="store_true",
@@ -108,8 +109,13 @@ def main() -> None:
         sock, port = bind_random_port(args.host)
         write_port_file(port)
         announce_ready(port)
-        config = uvicorn.Config(api, fd=sock.fileno(), log_level="info", access_log=False)
-        uvicorn.Server(config).run()
+        # Hand uvicorn the socket object, not its fd: uvicorn rebuilds an fd as
+        # AF_UNIX, which does not exist on Windows (the sidecar crashed there
+        # right after announcing READY).
+        config = uvicorn.Config(
+            api, host=args.host, port=port, log_level="info", access_log=False
+        )
+        uvicorn.Server(config).run(sockets=[sock])
     else:
         port = args.port if args.port is not None else 17321
         write_port_file(port)

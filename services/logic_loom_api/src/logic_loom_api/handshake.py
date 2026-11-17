@@ -3,7 +3,7 @@
 Bind a TCP socket on a random localhost port, persist the port + pid for the
 parent (Tauri) to discover, and emit ``LOGIC_LOOM_API_READY:<port>`` on stdout so
 the parent can parse it without polling. The bound socket is handed to uvicorn
-via its ``fd`` parameter — no race window between bind and listen.
+via ``Server.run(sockets=[...])`` — no race window between bind and listen.
 """
 
 from __future__ import annotations
