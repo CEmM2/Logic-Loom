@@ -3,7 +3,7 @@
  * node generation, and node validation runs.
  */
 
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 import type { LogEvent, RunRecord } from "./zsum";
 
 export type { LogEvent, RunRecord };
@@ -104,8 +104,7 @@ export async function streamNlmRun(
   onEvent: (e: LogEvent) => void,
   onDone?: (final: RunRecord | null) => void,
 ): Promise<() => void> {
-  const base = await getApiBase();
-  const es = new EventSource(`${base}/api/nlm/runs/${id}/stream`);
+  const es = new EventSource(await apiUrl(`/api/nlm/runs/${id}/stream`));
   es.addEventListener("log", (raw) => {
     try {
       const data = JSON.parse((raw as MessageEvent).data) as LogEvent;

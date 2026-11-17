@@ -12,7 +12,7 @@
  *     Tauri shell APIs).
  *   - exportRun(run_id) → zip blob of the run dir contents.
  */
-import { api, getApiBase } from "./client";
+import { api, apiFetch } from "./client";
 
 import type { RunRecord } from "./runs";
 
@@ -58,9 +58,7 @@ export async function openRunFolder(
  * envelope helper because the response body is a binary stream.
  */
 export async function exportRun(runId: string): Promise<Blob> {
-  const base = await getApiBase();
-  const url = `${base}${BASE}/${encodeURIComponent(runId)}/export`;
-  const res = await fetch(url, { method: "POST" });
+  const res = await apiFetch(`${BASE}/${encodeURIComponent(runId)}/export`, { method: "POST" });
   if (!res.ok) {
     throw new Error(`exportRun failed: ${res.status} ${res.statusText}`);
   }

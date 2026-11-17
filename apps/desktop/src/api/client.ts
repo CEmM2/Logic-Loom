@@ -9,17 +9,29 @@
  *      after our first poll.
  *   3. `import.meta.env.VITE_LOGIC_LOOM_API_BASE` — dev-only override (running
  *      `vite` outside of Tauri, e.g. for component tests).
+ *
+ * Every request also carries the per-launch API token the shell generated
+ * (`get_api_token`; `VITE_LOGIC_LOOM_API_TOKEN` when running outside Tauri
+ * against a sidecar started with `LOGIC_LOOM_API_TOKEN`). Use `api()` or
+ * `apiFetch()` for requests and `apiUrl()` for EventSource streams and links,
+ * which cannot set headers. Never build an API URL from `getApiBase()` alone.
  */
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 const DEV_OVERRIDE = (import.meta.env.VITE_LOGIC_LOOM_API_BASE ?? "").trim() || null;
+const DEV_TOKEN = (import.meta.env.VITE_LOGIC_LOOM_API_TOKEN ?? "").trim() || null;
+
+/** Header and query-parameter names; contract with `logic_loom_api/auth.py`. */
+export const TOKEN_HEADER = "X-Logic-Loom-Token";
+export const TOKEN_QUERY_PARAM = "llt";
 const STARTUP_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 200;
 
 let cachedBase: string | null = null;
 let pendingResolve: Promise<string> | null = null;
+let cachedToken: string | null = null;
 
 export function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -105,9 +117,50 @@ export async function getApiBase(): Promise<string> {
   return pendingResolve;
 }
 
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+/**
+ * The per-launch API token, or `null` when none applies (a sidecar started
+ * without `LOGIC_LOOM_API_TOKEN` for standalone debugging). Resolves after
+ * `getApiBase()`, because the shell stores the token when it spawns the
+ * sidecar, before the port is known.
+ */
+export async function getApiToken(): Promise<string | null> {
+  if (cachedToken) return cachedToken;
+  if (DEV_OVERRIDE || !isTauriRuntime()) return DEV_TOKEN;
+  await getApiBase();
+  const token = await invoke<string | null>("get_api_token").catch(() => null);
+  if (token) cachedToken = token;
+  return token ?? null;
+}
+
+/** `init` with the token header added (existing headers are kept). */
+export async function withAuth(init?: RequestInit): Promise<RequestInit> {
+  const token = await getApiToken();
+  if (!token) return init ?? {};
+  const headers = new Headers(init?.headers);
+  headers.set(TOKEN_HEADER, token);
+  return { ...init, headers };
+}
+
+/**
+ * Absolute URL for `path` with the token as a query parameter. For
+ * EventSource streams and `href`/`src` links, which cannot send headers.
+ */
+export async function apiUrl(path: string): Promise<string> {
   const base = await getApiBase();
-  const res = await fetch(`${base}${path}`, init);
+  const url = new URL(`${base}${path}`);
+  const token = await getApiToken();
+  if (token) url.searchParams.set(TOKEN_QUERY_PARAM, token);
+  return url.toString();
+}
+
+/** Raw `fetch` against the API with the token attached (non-JSON bodies). */
+export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  const base = await getApiBase();
+  return fetch(`${base}${path}`, await withAuth(init));
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiFetch(path, init);
   if (!res.ok) {
     let detail: unknown = null;
     try {

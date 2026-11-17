@@ -21,7 +21,7 @@
  * status — leaking it triggers infinite reconnects from EventSource's
  * default retry behaviour.
  */
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -191,8 +191,5 @@ export async function getEffectivePrompts(
  * backend closes the stream.
  */
 export async function openRunStream(runId: string): Promise<EventSource> {
-  const base = await getApiBase();
-  return new EventSource(
-    `${base}/api/runs/${encodeURIComponent(runId)}/stream`,
-  );
+  return new EventSource(await apiUrl(`/api/runs/${encodeURIComponent(runId)}/stream`));
 }

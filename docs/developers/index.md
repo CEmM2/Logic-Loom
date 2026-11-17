@@ -64,6 +64,10 @@ uv run logic-loom-api --port 17321
 VITE_LOGIC_LOOM_API_BASE=http://127.0.0.1:17321 pnpm fe:dev
 ```
 
+To exercise the token check as the desktop app does, start the API with
+`LOGIC_LOOM_API_TOKEN=<32+ characters>` and the frontend with the same value in
+`VITE_LOGIC_LOOM_API_TOKEN`.
+
 Then open <http://localhost:1420>. The sidecar only accepts browser requests from that
 origin, so keep the frontend on port 1420. Everything works as in the desktop app except
 the buttons that call into the desktop shell, such as the system folder picker and "Open

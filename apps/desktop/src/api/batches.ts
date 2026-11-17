@@ -4,7 +4,7 @@
  * The AKMS Batches page consumes this module to list,
  * inspect, edit, and run workflows against editable batches.
  */
-import { ApiError, api, getApiBase } from "./client";
+import { ApiError, api, apiFetch } from "./client";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -151,11 +151,9 @@ export async function archiveBatch(batchId: string) {
 export async function deleteBatch(batchId: string): Promise<void> {
   // Bypass the JSON-parsing `api()` wrapper because DELETE returns 204 No
   // Content; calling res.json() on that throws.
-  const base = await getApiBase();
-  const res = await fetch(
-    `${base}/api/batches/${encodeURIComponent(batchId)}`,
-    { method: "DELETE" },
-  );
+  const res = await apiFetch(`/api/batches/${encodeURIComponent(batchId)}`, {
+    method: "DELETE",
+  });
   if (!res.ok) {
     let detail: unknown = null;
     try { detail = await res.json(); } catch { /* leave null */ }

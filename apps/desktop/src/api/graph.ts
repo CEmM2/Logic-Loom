@@ -1,4 +1,4 @@
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 
 export type GraphDirection = "in" | "out" | "both";
 
@@ -169,8 +169,7 @@ export async function streamGraphRefresh(
   onError: (message: string) => void,
   onReviewRequired?: (report: GraphIssueLog) => void,
 ): Promise<() => void> {
-  const base = await getApiBase();
-  const url = new URL(`${base}/api/graph/refresh/stream`);
+  const url = new URL(await apiUrl("/api/graph/refresh/stream"));
   if (options.skipInvalidFiles) {
     url.searchParams.set("skip_invalid_files", "true");
   }

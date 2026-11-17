@@ -3,7 +3,7 @@
  * the consumer (EventSource) since the api<T>() wrapper is JSON-only.
  */
 
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 import type { LocalModelDefaults } from "../zsum/config-schema";
 
 export type { LocalModelDefaults };
@@ -237,8 +237,7 @@ export async function streamRun(
   onEvent: (e: LogEvent) => void,
   onDone?: (final: RunRecord | null) => void,
 ): Promise<() => void> {
-  const base = await getApiBase();
-  const es = new EventSource(`${base}/api/zsum/runs/${id}/stream`);
+  const es = new EventSource(await apiUrl(`/api/zsum/runs/${id}/stream`));
   es.addEventListener("log", (raw) => {
     try {
       const data = JSON.parse((raw as MessageEvent).data) as LogEvent;

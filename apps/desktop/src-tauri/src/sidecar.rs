@@ -43,6 +43,22 @@ impl std::fmt::Display for SidecarError {
 pub struct SidecarState {
     pub port: Mutex<Option<u16>>,
     pub child: Mutex<Option<Child>>,
+    /// Per-launch secret the sidecar requires on every request (see
+    /// `logic_loom_api/auth.py`). Handed to the frontend only through the
+    /// `get_api_token` command, never through an event or the handshake line.
+    pub token: Mutex<Option<String>>,
+}
+
+/// Environment variable the sidecar reads its token from. Contract with
+/// `logic_loom_api.auth.TOKEN_ENV`.
+const TOKEN_ENV: &str = "LOGIC_LOOM_API_TOKEN";
+
+/// 32 bytes from the OS CSPRNG, hex-encoded (64 chars).
+fn generate_token() -> Result<String, SidecarError> {
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes)
+        .map_err(|e| SidecarError::Resolve(format!("OS random source unavailable: {e}")))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
 #[derive(Serialize, Clone)]
@@ -176,7 +192,9 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
     let root = workspace_root();
     log::info!("spawning logic-loom-api; workspace root: {}", root.display());
 
+    let token = generate_token()?;
     let mut cmd = command_for_sidecar(&app, &root)?;
+    cmd.env(TOKEN_ENV, &token);
     augment_path_for_cli_providers(&mut cmd);
     configure_sidecar_command(&mut cmd);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -190,6 +208,7 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
     // Stash child early so shutdown can find it even if handshake fails later.
     let state = app.state::<Arc<SidecarState>>();
     *state.child.lock().unwrap() = Some(child);
+    *state.token.lock().unwrap() = Some(token);
 
     // Drain stderr in a separate thread; just forward to our stderr.
     if let Some(err) = stderr {
@@ -246,6 +265,7 @@ fn parse_ready_line(line: &str) -> Option<u16> {
 pub fn shutdown(app: &AppHandle) {
     let state = app.state::<Arc<SidecarState>>();
     *state.port.lock().unwrap() = None;
+    *state.token.lock().unwrap() = None;
     let mut guard = state.child.lock().unwrap();
     let Some(mut child) = guard.take() else {
         return;
@@ -314,6 +334,12 @@ pub fn get_api_port(state: tauri::State<'_, Arc<SidecarState>>) -> Option<u16> {
     *state.port.lock().unwrap()
 }
 
+/// The per-launch API token. `None` until the sidecar has been spawned.
+#[tauri::command]
+pub fn get_api_token(state: tauri::State<'_, Arc<SidecarState>>) -> Option<String> {
+    state.token.lock().unwrap().clone()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -329,6 +355,15 @@ mod tests {
         assert_eq!(parse_ready_line("hello"), None);
         assert_eq!(parse_ready_line("LOGIC_LOOM_API_READY:not-a-port"), None);
         assert_eq!(parse_ready_line(""), None);
+    }
+
+    #[test]
+    fn generated_tokens_are_64_hex_chars_and_distinct() {
+        let a = generate_token().expect("token");
+        let b = generate_token().expect("token");
+        assert_eq!(a.len(), 64);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+        assert_ne!(a, b);
     }
 
     #[cfg(unix)]

@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import __version__
 from .adapters.picker_adapter import build_picker_app
 from .akms_workspace import bootstrap_akms_workspace
+from .auth import LocalAuthMiddleware
 from .assistant import bootstrap_assistant_workspace
 from .config import Settings
 from .errors import install_handlers
@@ -104,6 +105,12 @@ async def lifespan(_app):
 
 
 api = FastAPI(title="logic-loom-api", version=__version__, lifespan=lifespan)
+
+# Local API auth (per-launch token + loopback Host allowlist). Added BEFORE
+# CORSMiddleware so CORS wraps it: preflights are answered by CORS and never
+# need the token, and a 401/421 still carries CORS headers so the webview can
+# read it. It sits on the outer app, so the /api/picker sub-app is covered too.
+api.add_middleware(LocalAuthMiddleware)
 
 api.add_middleware(
     CORSMiddleware,

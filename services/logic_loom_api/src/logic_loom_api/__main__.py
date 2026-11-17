@@ -86,6 +86,12 @@ def main() -> None:
 
     ensure_runtime_site_on_path()
 
+    # Take the per-launch API token out of the environment before anything can
+    # spawn a child process (see auth.capture_token_from_env).
+    from .auth import capture_token_from_env
+
+    capture_token_from_env()
+
     from .main import api
 
     install_shutdown_handlers()

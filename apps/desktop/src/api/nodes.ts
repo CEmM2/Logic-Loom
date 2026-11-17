@@ -1,4 +1,4 @@
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 
 export type NodeFile = {
   path: string;
@@ -69,10 +69,9 @@ export async function copyToVault(path: string): Promise<CopyToVaultResult> {
 }
 
 export async function createPromoteStream(params: PromoteParams): Promise<EventSource> {
-  const base = await getApiBase();
   const qs = new URLSearchParams({ source: params.source });
   if (params.vault) qs.set("vault", params.vault);
   if (params.promote) qs.set("promote", "true");
   if (params.execute) qs.set("execute", "true");
-  return new EventSource(`${base}/api/nodes/promote/stream?${qs}`);
+  return new EventSource(await apiUrl(`/api/nodes/promote/stream?${qs}`));
 }

@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock the shared client so we can spy on `api` (path + init) and stub
-// `getApiBase` (used only by the artifact URL builder). This is a pure
+// `apiUrl` (used only by the artifact URL builder, which adds the token). This is a pure
 // node-env module test — no jsdom needed.
 const apiMock = vi.fn(async (..._args: unknown[]) => ({}) as unknown);
-const getApiBaseMock = vi.fn(async () => "http://127.0.0.1:17321");
+const apiUrlMock = vi.fn(async (path: string) => `http://127.0.0.1:17321${path}?llt=t`);
 
 vi.mock("../api/client", () => ({
   api: (...args: unknown[]) => apiMock(...args),
-  getApiBase: () => getApiBaseMock(),
+  apiUrl: (path: string) => apiUrlMock(path),
 }));
 
 import {
@@ -30,8 +30,7 @@ import type {
 beforeEach(() => {
   apiMock.mockReset();
   apiMock.mockResolvedValue({} as unknown);
-  getApiBaseMock.mockReset();
-  getApiBaseMock.mockResolvedValue("http://127.0.0.1:17321");
+  apiUrlMock.mockClear();
 });
 
 afterEach(() => {
@@ -178,8 +177,8 @@ describe("learn.ts API client + types", () => {
 
     // Artifact endpoint is a URL builder (raw bytes), NOT an api<T> call.
     const url = await learnArtifactUrl("abc123", "sub/learn.md");
-    expect(getApiBaseMock).toHaveBeenCalled();
-    expect(url).toBe("http://127.0.0.1:17321/api/learn/artifacts/abc123/sub/learn.md");
+    expect(apiUrlMock).toHaveBeenCalledWith("/api/learn/artifacts/abc123/sub/learn.md");
+    expect(url).toBe("http://127.0.0.1:17321/api/learn/artifacts/abc123/sub/learn.md?llt=t");
     // The URL builder must not route through `api`.
     // (No /export call: that deferred-stub client was removed — see api/learn.ts.)
     expect(apiMock).toHaveBeenCalledTimes(4);

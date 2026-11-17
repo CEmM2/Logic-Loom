@@ -11,7 +11,7 @@
  * artifact file endpoint (which returns bytes, not JSON).
  */
 
-import { api, getApiBase } from "./client";
+import { api, apiUrl } from "./client";
 
 import type { GraphDirection, GraphEdge, GraphNode } from "./graph";
 
@@ -345,13 +345,12 @@ export async function compileLearningSource(req: LearnCompileRequest) {
  * (for use as an `href`/`src`), NOT an `api<T>` call.
  */
 export async function learnArtifactUrl(artifactId: string, path: string): Promise<string> {
-  const base = await getApiBase();
   const segments = path
     .split("/")
     .filter((seg) => seg.length > 0)
     .map((seg) => encodeURIComponent(seg))
     .join("/");
-  return `${base}/api/learn/artifacts/${encodeURIComponent(artifactId)}/${segments}`;
+  return apiUrl(`/api/learn/artifacts/${encodeURIComponent(artifactId)}/${segments}`);
 }
 
 /**
