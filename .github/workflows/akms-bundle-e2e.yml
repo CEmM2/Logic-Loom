@@ -30,10 +30,10 @@ jobs:
     name: resources/ Nodes_Vault security guard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Run guard
@@ -48,10 +48,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install uv
@@ -87,17 +87,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           # pnpm 11 (declared in package.json packageManager) requires
           # Node >= 22.13 — it imports the `node:sqlite` builtin which
           # only exists on 22+. Node 20 was the original setting per
           # CLAUDE.md's `Node >=20` but pnpm 11 forces the bump.
           node-version: "22"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         # Version comes from package.json's `packageManager` field
         # (currently `pnpm@11.0.0`). Declaring `version:` here too causes
         # action-setup@v4 to error with `ERR_PNPM_BAD_PM_VERSION`.

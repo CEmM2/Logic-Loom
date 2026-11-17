@@ -49,7 +49,7 @@ jobs:
       contents: write  # required to create the GitHub Release
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -90,7 +90,7 @@ jobs:
           fi
 
       - name: Create source-only GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           body_path: ${{ steps.notes.outputs.found }}
