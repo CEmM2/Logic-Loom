@@ -1,6 +1,6 @@
 [package]
 name = "logic-loom-desktop"
-version = "0.3.1"
+version = "0.3.2"
 description = "Logic-Loom desktop shell"
 authors = ["Shmuel Osovski"]
 license = "MIT"

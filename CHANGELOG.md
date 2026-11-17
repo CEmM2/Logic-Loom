@@ -5,6 +5,23 @@
 > [documentation site](https://cemm2.github.io/Logic-Loom/); the entries below
 > summarise them.
 
+## v0.3.2
+
+Security and reliability fixes from the v0.3.1 QA pass. Full notes:
+[`docs/release_notes/v0.3.2.md`](./docs/release_notes/v0.3.2.md).
+
+- **Local API requires a per-launch token** and a loopback `Host`, closing
+  access by other local programs and by web pages through DNS rebinding.
+- **Hardened inputs:** prompt and workflow ids can't escape the library, node
+  file read/open is limited to the node and vault folders, saved API keys are
+  masked, command settings must name a real program, and error responses carry
+  no tracebacks.
+- **No orphaned sidecars:** the sidecar exits when the app dies for any reason;
+  Windows kills the whole process tree; a second launch focuses the first window.
+- **Windows sidecar serves again:** in v0.3.1 it crashed right after starting
+  (uvicorn rebuilt the listening socket as a Unix socket).
+- **Docs:** install links point at the installer releases; checksum steps per OS.
+
 ## v0.3.1
 
 Linux packages that run on current distributions. Full notes:
