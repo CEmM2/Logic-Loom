@@ -12,7 +12,7 @@ name: AKMS Bundle E2E
 
 on:
   pull_request:
-    branches: [master, main]
+    branches: [master, main, dev]
     paths:
       - "services/logic_loom_api/**"
       - "apps/desktop/**"

@@ -12,17 +12,12 @@ name: docs
 
 on:
   pull_request:
-    branches: [master, main]
+    branches: [master, main, dev]
     paths:
       - "docs/**"
       - "mkdocs.yml"
       - "README.md"
       - "CHANGELOG.md"
-      - "CLAUDE.md"
-      - "AGENTS.md"
-      - "dev/STATUS.md"
-      - "dev/docs/**"
-      - "dev/architecture/**"
       - "scripts/gen_docs_reference.py"
       - "scripts/mkdocs_hooks.py"
       - "scripts/check_docs.py"

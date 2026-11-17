@@ -36,7 +36,7 @@ name: failure-memory
 
 on:
   pull_request:
-    branches: [master, main]
+    branches: [master, main, dev]
     paths:
       - ".failure-memory/**"
       - "tests/failure_memory/**"

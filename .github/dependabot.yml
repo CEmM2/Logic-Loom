@@ -1,8 +1,11 @@
 version: 2
 
+# Dependency PRs go to `dev`, where development happens; `dev` reaches
+# `main` at release time.
 updates:
   - package-ecosystem: "uv"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -26,6 +29,7 @@ updates:
 
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -56,6 +60,7 @@ updates:
 
   - package-ecosystem: "cargo"
     directory: "/apps/desktop/src-tauri"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -74,6 +79,7 @@ updates:
 
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
       day: "monday"
