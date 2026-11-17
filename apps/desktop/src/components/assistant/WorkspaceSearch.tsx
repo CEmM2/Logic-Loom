@@ -20,7 +20,7 @@
  * on `document`.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { JSX, KeyboardEvent } from "react";
 
 import {
@@ -176,12 +176,17 @@ export function WorkspaceSearch(props: WorkspaceSearchProps): JSX.Element | null
   const [status, setStatus] = useState<IndexStatus | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const lastQuery = useRef<string | null>(null);
 
   // Reset state every time the modal opens (so re-opening starts fresh).
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setResults([]);
+    lastQuery.current = null;
+    setSearchError(null);
+    setLoading(false);
     setFilters(initialFilterState());
     let cancelled = false;
     statusFn()
@@ -202,16 +207,29 @@ export function WorkspaceSearch(props: WorkspaceSearchProps): JSX.Element | null
   // resolving synchronously.
   useEffect(() => {
     if (!open) return;
+    // When the query text changes, drop the previous query's results
+    // straight away, so a cleared or changed query never shows stale hits
+    // (v0.3.1 QA), and show "Searching…" through the debounce. A filter
+    // change keeps the current hits (filtered client-side) while it refetches.
+    const queryChanged = lastQuery.current !== query;
+    lastQuery.current = query;
+    setSearchError(null);
+    if (queryChanged) setResults([]);
     if (!query.trim()) {
       setResults([]);
+      setLoading(false);
       return;
     }
+    if (queryChanged) setLoading(true);
     let cancelled = false;
     const handle = setTimeout(async () => {
-      setLoading(true);
       try {
         const next = await searchFn(query, Array.from(filters.active));
         if (!cancelled) setResults(next);
+      } catch (error) {
+        if (!cancelled) {
+          setSearchError(error instanceof Error ? error.message : String(error));
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -334,6 +352,10 @@ export function WorkspaceSearch(props: WorkspaceSearchProps): JSX.Element | null
             </div>
           ) : loading ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Searching…</div>
+          ) : searchError ? (
+            <div className="p-6 text-center text-sm text-destructive" data-testid="workspace-search-error">
+              Search failed: {searchError}
+            </div>
           ) : filteredResults.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">
               No results.

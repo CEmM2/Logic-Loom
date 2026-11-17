@@ -60,7 +60,7 @@ export default function HomeRoute() {
           so the modes/buttons sit on top of the logo without competing. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
+        className="ll-watermark pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
       >
         <img
           src={bannerUrl}

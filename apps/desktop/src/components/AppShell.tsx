@@ -46,14 +46,23 @@ export function AppShell({ currentMode, onModeChange, gate: Gate }: AppShellProp
     function handleKeyDown(event: KeyboardEvent): void {
       // Cmd-K on macOS, Ctrl-K on Windows/Linux. `metaKey` is the
       // platform-agnostic name for the Cmd key in DOM events.
-      const isShortcut = event.key === "k" && (event.metaKey || event.ctrlKey);
+      // Match on the physical key too: `event.key` is "K" with Caps Lock or
+      // Shift held, which made the first press look ignored (v0.3.1 QA).
+      const isK = event.code === "KeyK" || event.key.toLowerCase() === "k";
+      const isShortcut = isK && (event.metaKey || event.ctrlKey) && !event.altKey;
       if (isShortcut) {
+        if (event.repeat) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         setSearchOpen((prev) => !prev);
       }
     }
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    // Capture phase, so a focused widget that stops propagation (an editor,
+    // a dialog) cannot swallow the shortcut.
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
   }, []);
 
   const handleSearchNavigate = useCallback(

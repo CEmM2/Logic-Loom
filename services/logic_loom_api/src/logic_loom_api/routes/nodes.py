@@ -7,6 +7,7 @@ import errno
 import logging
 import os
 import re
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, BinaryIO, Callable
@@ -300,18 +301,37 @@ def open_in_editor(
                 status_code=400, detail="nodes_editor setting does not parse as a command"
             ) from None
         cmd = [*editor_argv, str(p)]
+        via = "editor"
     elif os.name == "nt":
         subprocess.Popen(["cmd", "/c", "start", "", str(p)], start_new_session=True)
-        return {"status": "opened", "cmd": f"start {p}"}
+        return {"status": "opened", "cmd": f"start {p}", "via": "system"}
     else:
         opener = "open" if os.uname().sysname == "Darwin" else "xdg-open"
+        if shutil.which(opener) is None:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"No editor is set and the system opener ({opener}) is not "
+                    "installed. Set an editor command under zsum > Settings > "
+                    "Nodes Review > Editor command."
+                ),
+            )
         cmd = [opener, str(p)]
+        via = "system"
 
     try:
         subprocess.Popen(cmd, start_new_session=True)
-        return {"status": "opened", "cmd": " ".join(cmd)}
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                f"Editor command not found: {cmd[0]}. Check zsum > Settings > "
+                "Nodes Review > Editor command."
+            ),
+        ) from None
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    return {"status": "opened", "cmd": " ".join(cmd), "via": via}
 
 
 class CopyToVaultRequest(BaseModel):

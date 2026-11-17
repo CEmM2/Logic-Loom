@@ -96,7 +96,7 @@ function Shell() {
         <Route path="/settings" element={<LazyRoute><UnifiedSettingsRoute /></LazyRoute>} />
 
         {/* ── Legacy redirects — keep all old deep links alive ── */}
-        <Route path="/picker" element={<Navigate to="/akms/batches" replace />} />
+        <Route path="/picker" element={<Navigate to="/akms/picker" replace />} />
         <Route path="/nodes" element={<Navigate to="/akms/nodes" replace />} />
         <Route path="/graph" element={<Navigate to="/akms/graph" replace />} />
         <Route path="/pipeline" element={<Navigate to="/zsum/pipeline" replace />} />

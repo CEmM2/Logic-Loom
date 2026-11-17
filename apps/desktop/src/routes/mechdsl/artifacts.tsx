@@ -29,11 +29,17 @@ export default function MechdslArtifactsRoute() {
         <button
           type="submit"
           disabled={!artifactId.trim() || mutation.isPending}
+          title={artifactId.trim() ? undefined : "Enter an artifact id first."}
           className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
         >
           {mutation.isPending ? "Loading…" : "Fetch"}
         </button>
       </form>
+      {!artifactId.trim() && (
+        <p className="text-xs text-muted-foreground">
+          Enter the artifact id shown in a Compile result to fetch it.
+        </p>
+      )}
 
       {mutation.isError && (
         <p className="text-sm text-destructive">

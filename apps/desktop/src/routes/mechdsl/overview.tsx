@@ -39,29 +39,40 @@ export default function MechdslOverviewRoute() {
         <h2 className="text-sm font-semibold">Backends</h2>
         <div className="flex items-center justify-between text-sm">
           <span>Emit / transpile</span>
-          <span className="text-emerald-600">✓ available</span>
+          <span className="text-emerald-600" data-testid="mechdsl-emit-status">
+            ✓ Ready (no Taichi needed)
+          </span>
         </div>
         <div className="flex items-center justify-between gap-4 text-sm">
           <span>
             Verify <span className="text-muted-foreground">(Taichi)</span>
           </span>
           {taichiReady ? (
-            <span className="text-emerald-600">✓ available</span>
+            <span className="text-emerald-600" data-testid="mechdsl-verify-status">
+              ✓ Ready (Taichi installed)
+            </span>
           ) : !platformSupported ? (
-            <span className="text-muted-foreground">✗ unsupported here</span>
+            <span className="text-muted-foreground" data-testid="mechdsl-verify-status">
+              ✗ Not supported on this computer
+            </span>
           ) : (
-            <button
-              type="button"
-              disabled={installing || install.isPending}
-              onClick={() => install.mutate()}
-              className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
-            >
-              {installing || install.isPending
-                ? "Installing…"
-                : failed
-                  ? "Retry install"
-                  : "Install taichi 1.7.4"}
-            </button>
+            <span className="flex items-center gap-3">
+              <span className="text-muted-foreground" data-testid="mechdsl-verify-status">
+                {failed ? "Install failed" : installing || install.isPending ? "" : "Not installed"}
+              </span>
+              <button
+                type="button"
+                disabled={installing || install.isPending}
+                onClick={() => install.mutate()}
+                className="rounded bg-accent px-3 py-1.5 text-sm font-semibold text-accent-foreground disabled:opacity-50"
+              >
+                {installing || install.isPending
+                  ? "Installing…"
+                  : failed
+                    ? "Retry install"
+                    : "Install taichi 1.7.4"}
+              </button>
+            </span>
           )}
         </div>
 

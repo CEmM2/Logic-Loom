@@ -80,7 +80,36 @@ function draftToPatch(draft: DraftState, original: AppConfig): ConfigUpdate {
   return patch;
 }
 
-function TestConnectionRow({ state }: { state: ProviderTestState }) {
+/**
+ * Plain-language next step for a failed provider test. A bare
+ * "HTTP 429 ok=no" left people guessing (v0.3.1 QA).
+ */
+export function connectionAdvice(
+  provider: "openalex" | "semantic_scholar",
+  detail: string | null | undefined,
+): string | null {
+  const text = detail ?? "";
+  if (/\b429\b|rate.?limit/i.test(text)) {
+    return provider === "semantic_scholar"
+      ? "Semantic Scholar is rate-limiting this computer. Without an API key the shared limit is low, so wait a minute and test again, or add a free API key above (request one at semanticscholar.org/product/api)."
+      : "OpenAlex is rate-limiting requests. Wait a minute and test again; setting your email above puts you in the faster polite pool.";
+  }
+  if (/\b(401|403)\b/.test(text)) {
+    return "The provider refused the API key. Check that it was copied in full, or clear it to test without one.";
+  }
+  if (/timed? ?out|timeout|connect/i.test(text)) {
+    return "The provider could not be reached. Check your internet connection or proxy and try again.";
+  }
+  return null;
+}
+
+function TestConnectionRow({
+  state,
+  provider,
+}: {
+  state: ProviderTestState;
+  provider: "openalex" | "semantic_scholar";
+}) {
   if (state.status === "idle") return null;
   if (state.status === "loading") {
     return (
@@ -97,26 +126,34 @@ function TestConnectionRow({ state }: { state: ProviderTestState }) {
     );
   }
   const r = state.result;
+  const advice = r.ok ? null : connectionAdvice(provider, r.detail);
   return (
-    <dl
-      className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border bg-muted/40 px-3 py-2 text-xs"
-      data-testid="test-connection-result"
-    >
-      <dt className="font-medium">ok</dt>
-      <dd data-testid="test-connection-ok">{r.ok ? "yes" : "no"}</dd>
-      <dt className="font-medium">latency_ms</dt>
-      <dd data-testid="test-connection-latency">{r.latency_ms}</dd>
-      <dt className="font-medium">quota_remaining</dt>
-      <dd data-testid="test-connection-quota">
-        {r.quota_remaining === null ? "—" : r.quota_remaining}
-      </dd>
-      {r.detail && (
-        <>
-          <dt className="font-medium">detail</dt>
-          <dd>{r.detail}</dd>
-        </>
+    <>
+      <dl
+        className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border bg-muted/40 px-3 py-2 text-xs"
+        data-testid="test-connection-result"
+      >
+        <dt className="font-medium">ok</dt>
+        <dd data-testid="test-connection-ok">{r.ok ? "yes" : "no"}</dd>
+        <dt className="font-medium">latency_ms</dt>
+        <dd data-testid="test-connection-latency">{r.latency_ms}</dd>
+        <dt className="font-medium">quota_remaining</dt>
+        <dd data-testid="test-connection-quota">
+          {r.quota_remaining === null ? "—" : r.quota_remaining}
+        </dd>
+        {r.detail && (
+          <>
+            <dt className="font-medium">detail</dt>
+            <dd>{r.detail}</dd>
+          </>
+        )}
+      </dl>
+      {advice && (
+        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400" data-testid="test-connection-advice">
+          {advice}
+        </p>
       )}
-    </dl>
+    </>
   );
 }
 
@@ -253,7 +290,7 @@ export default function AssistantSettingsRoute() {
               data-testid="input-openalex-key"
             />
           </label>
-          <TestConnectionRow state={openalexTest} />
+          <TestConnectionRow state={openalexTest} provider="openalex" />
         </section>
 
         <section className="flex flex-col gap-3 rounded-lg border bg-card p-4">
@@ -290,7 +327,7 @@ export default function AssistantSettingsRoute() {
               Public endpoint rate limits apply when blank.
             </span>
           </label>
-          <TestConnectionRow state={s2Test} />
+          <TestConnectionRow state={s2Test} provider="semantic_scholar" />
         </section>
 
         <section className="flex flex-col gap-3 rounded-lg border bg-card p-4">

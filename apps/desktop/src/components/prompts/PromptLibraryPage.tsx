@@ -367,26 +367,37 @@ function VariantEditor({
     }
   };
 
-  // Preview = resolve using the variant's slot only, applying the
-  // editor's current text as a request-level override so the user sees
-  // the resolved effective text given current edits.
+  // The resolver's variant reference: `<source>:<family>.<stem>.<id>`.
+  const variantRef = `${variant.source}:${variant.slot}.${variant.id}`;
+
+  // Preview = resolve the active profile with this variant pinned to its
+  // slot. Overrides are variant *references*; an earlier revision sent the
+  // editor text here, which the resolver could not parse, so the preview
+  // came back empty. Unsaved edits are shown from the editor below.
   const previewMut = useMutation({
     mutationFn: () =>
       resolveEffectivePrompts({
-        request_overrides: { [variant.slot]: content },
+        request_overrides: { [variant.slot]: variantRef },
       }),
-    onSuccess: (res) => setPreview(res),
+    onSuccess: (res) => {
+      setValidationMsg(null);
+      setPreview(res);
+    },
+    onError: (e: unknown) => {
+      setPreview(null);
+      setValidationMsg(`Preview failed: ${errMsg(e)}`);
+    },
   });
 
   // "Where used": every profile whose `active[slot]` resolves to this variant.
   const whereUsed = useMemo(() => {
-    const ref = `${variant.source}:${variant.slot}:${variant.id}`;
+    const legacyRef = `${variant.source}:${variant.slot}:${variant.id}`;
     const refShort = `${variant.slot}:${variant.id}`;
     return allProfiles.filter((p) => {
       const v = p.active[variant.slot];
-      return v === ref || v === refShort || v === variant.id;
+      return v === variantRef || v === legacyRef || v === refShort || v === variant.id;
     });
-  }, [allProfiles, variant]);
+  }, [allProfiles, variant, variantRef]);
 
   const dirty =
     name !== variant.name ||
@@ -503,7 +514,7 @@ function VariantEditor({
         <button
           type="button"
           data-testid="variant-validate-button"
-          disabled={isReadOnly || validateMut.isPending}
+          disabled={validateMut.isPending}
           onClick={() => validateMut.mutate()}
           className="rounded border px-3 py-1 text-sm"
         >
@@ -548,6 +559,11 @@ function VariantEditor({
           <h3 className="mb-2 text-xs font-semibold uppercase text-muted-foreground">
             Resolved effective prompts
           </h3>
+          {Object.keys(preview.slot_to_variant).length === 0 && (
+            <p className="text-xs text-muted-foreground" data-testid="variant-preview-empty">
+              Nothing resolved: the active profile selects no prompts.
+            </p>
+          )}
           <ul className="space-y-2">
             {Object.entries(preview.slot_to_variant).map(([slot, ref]) => (
               <li
@@ -561,11 +577,24 @@ function VariantEditor({
                     variant: <code className="font-mono">{ref}</code>
                   </span>
                 </div>
-                {preview.contents[slot] ? (
+                {slot === variant.slot && dirty ? (
+                  <>
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      Showing your unsaved edits.
+                    </p>
+                    <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground">
+                      {content}
+                    </pre>
+                  </>
+                ) : preview.contents[slot] ? (
                   <pre className="mt-1 max-h-24 overflow-auto whitespace-pre-wrap text-[11px] text-muted-foreground">
                     {preview.contents[slot]}
                   </pre>
-                ) : null}
+                ) : (
+                  <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-400">
+                    {ref ? "This variant could not be found." : "No variant selected for this slot."}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

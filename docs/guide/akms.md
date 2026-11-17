@@ -15,7 +15,7 @@ needed; everything runs from the installed packages and your AKMS workspace.
 | Overview | Readiness of each AKMS feature, with setup hints |
 | Batches | Your batch definitions, plus starter batches seeded on first run |
 | Picker | Assign papers to batches and NotebookLM notebooks, then generate and validate nodes. Lists every batch from the Batches tab and picks up changes without a restart |
-| Nodes | Browse, review and promote generated nodes; established nodes are badged separately from drafts |
+| Nodes | Browse, review and promote generated nodes; established nodes are badged separately from drafts. **Open in Editor** uses the editor command from zsum ▸ Settings ▸ Nodes Review, or your system's default app when none is set, and says which it used |
 | Graph | Read-only graph explorer (below) |
 | Learn | Compile graph slices into learning material |
 | Prompts | The prompt library: bundled defaults, your variants and active profiles |

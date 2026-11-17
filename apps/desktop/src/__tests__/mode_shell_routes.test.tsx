@@ -30,6 +30,7 @@ import { AppShell } from "../components/AppShell";
 import { subnav } from "../components/SectionSideNav";
 import { topLevelModes } from "../components/TopModeNav";
 import type { Mode } from "../components/TopModeNav";
+import appSource from "../App.tsx?raw";
 
 function makeQC() {
   return new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
@@ -136,9 +137,10 @@ describe("Top-level mode state and route namespaces", () => {
     expect(container.querySelector('[data-testid="global-run-status"]')).toBeNull();
   });
 
-  it("redirects legacy /picker to /akms/batches", () => {
+  it("redirects legacy /picker to /akms/picker", () => {
     // Old URLs (/picker, /nodes, /graph, /vault, /pipeline) redirect to /akms/* or /zsum/*.
-    // Passes when: a MemoryRouter entered at /picker renders the /akms/batches sentinel.
+    // /picker was the paper picker, which still lives at /akms/picker; it used
+    // to redirect to /akms/batches, a different page (v0.3.1 QA).
     //
     // We use the declarative MemoryRouter + Routes API rather than the
     // data-router (createMemoryRouter + RouterProvider) because the data
@@ -146,20 +148,21 @@ describe("Top-level mode state and route namespaces", () => {
     // in jsdom, which fails the `AbortSignal` instanceof check — a known
     // jsdom × @remix-run/router interop bug. The declarative API exercises
     // the same redirect contract without that code path.
+    expect(appSource).toContain(
+      '<Route path="/picker" element={<Navigate to="/akms/picker" replace />} />',
+    );
     render(
       <MemoryRouter initialEntries={["/picker"]}>
         <Routes>
-          <Route path="/picker" element={<Navigate to="/akms/batches" replace />} />
+          <Route path="/picker" element={<Navigate to="/akms/picker" replace />} />
           <Route
-            path="/akms/batches"
-            element={<div data-testid="akms-batches-page">AKMS Batches</div>}
+            path="/akms/picker"
+            element={<div data-testid="akms-picker-page">AKMS Picker</div>}
           />
         </Routes>
       </MemoryRouter>,
     );
 
-    // After redirect the /akms/batches sentinel element must be visible
-    expect(screen.getByTestId("akms-batches-page")).toBeTruthy();
-    expect(screen.getByTestId("akms-batches-page").textContent).toBe("AKMS Batches");
+    expect(screen.getByTestId("akms-picker-page").textContent).toBe("AKMS Picker");
   });
 });

@@ -395,21 +395,31 @@ def _openapi_with_picker() -> dict:
 api.openapi = _openapi_with_picker  # type: ignore[method-assign]
 
 
-def _mount_picker() -> bool:
-    """Mount the batch picker; log and return False when it cannot be built."""
+def _mount_picker(*, retry_pending: bool = False) -> bool:
+    """Mount the batch picker; log and return False when it cannot be built.
+
+    ``retry_pending`` marks the import-time attempt, which normally runs before
+    the lifespan has bootstrapped the workspace: a missing file there is
+    expected and is retried after bootstrap, so it logs at INFO. Only a
+    failure that survives the retry is a WARNING (v0.3.1 QA: the old warning on
+    every start was noise).
+    """
     try:
         api.mount(PICKER_PREFIX, build_picker_app(Settings.load()))
         api.openapi_schema = None  # rebuild with the picker's routes
     except (RuntimeError, FileNotFoundError, OSError) as e:
         # Missing AKMS / missing zsumbib.json / unreadable state file: log and
         # continue. The picker namespace will 404 until config is fixed.
-        logger.warning("picker mount skipped: %s", e)
+        if retry_pending and isinstance(e, FileNotFoundError):
+            logger.info("picker not mounted yet, retrying after workspace bootstrap: %s", e)
+        else:
+            logger.warning("picker mount skipped: %s", e)
         return False
     logger.info("mounted AKMS batch picker at /api/picker")
     return True
 
 
-_picker_mounted = _mount_picker()
+_picker_mounted = _mount_picker(retry_pending=True)
 
 
 def _mount_picker_after_bootstrap() -> None:

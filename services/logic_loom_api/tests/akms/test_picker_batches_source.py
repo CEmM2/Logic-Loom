@@ -206,7 +206,7 @@ class TestPickerMountContinuesWhenBothMissing:
 
         import logic_loom_api.main as main_mod
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.INFO):
             importlib.reload(main_mod)
 
         client = TestClient(main_mod.api)
@@ -216,8 +216,17 @@ class TestPickerMountContinuesWhenBothMissing:
         # Picker namespace 404s (mount was skipped).
         r = client.get("/api/picker/api/papers")
         assert r.status_code == 404
-        # Warning was logged at mount time.
-        assert any("picker mount skipped" in rec.message for rec in caplog.records)
+        # The import-time attempt runs before the workspace bootstrap, so a
+        # missing file is expected and logged at INFO (it is retried in the
+        # lifespan); no WARNING at import time (v0.3.1 QA: log noise).
+        assert any(
+            "picker not mounted yet" in rec.message and rec.levelno == logging.INFO
+            for rec in caplog.records
+        )
+        assert not any(
+            "picker mount skipped" in rec.message and rec.levelno >= logging.WARNING
+            for rec in caplog.records
+        )
 
     def test_first_launch_mounts_the_picker_once_the_workspace_exists(
         self, tmp_path: Path, monkeypatch

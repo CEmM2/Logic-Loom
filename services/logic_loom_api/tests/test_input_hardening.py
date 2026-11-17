@@ -135,6 +135,54 @@ def test_nodes_open_outside_node_folders_is_422(client: TestClient, env) -> None
     assert r.status_code == 422
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX opener path")
+def test_nodes_open_without_editor_or_opener_explains(
+    client: TestClient, env, monkeypatch
+) -> None:
+    """QA batch 7: Open in Editor gave no feedback when nothing could open."""
+    from logic_loom_api.routes import nodes as nodes_mod
+
+    node = env["nodes"] / "n.md"
+    node.write_text("---\nid: n\n---\nbody", encoding="utf-8")
+    monkeypatch.setattr(nodes_mod.shutil, "which", lambda _name: None)
+    spawned: list[object] = []
+    monkeypatch.setattr(nodes_mod.subprocess, "Popen", lambda *a, **k: spawned.append(a))
+    r = client.post("/api/nodes/open", json={"path": str(node)})
+    assert r.status_code == 503
+    assert "Editor command" in r.text
+    assert spawned == []
+
+
+def test_nodes_open_reports_missing_editor_command(client: TestClient, env, monkeypatch) -> None:
+    from logic_loom_api.routes import nodes as nodes_mod
+
+    node = env["nodes"] / "n.md"
+    node.write_text("---\nid: n\n---\nbody", encoding="utf-8")
+    monkeypatch.setenv("LOGIC_LOOM_NODES_EDITOR", "no-such-editor-xyz")
+    reload_settings()
+
+    def _missing(*_a, **_k):
+        raise FileNotFoundError("no-such-editor-xyz")
+
+    monkeypatch.setattr(nodes_mod.subprocess, "Popen", _missing)
+    r = client.post("/api/nodes/open", json={"path": str(node)})
+    assert r.status_code == 503
+    assert "no-such-editor-xyz" in r.text
+
+
+def test_nodes_open_with_editor_says_so(client: TestClient, env, monkeypatch) -> None:
+    from logic_loom_api.routes import nodes as nodes_mod
+
+    node = env["nodes"] / "n.md"
+    node.write_text("---\nid: n\n---\nbody", encoding="utf-8")
+    monkeypatch.setenv("LOGIC_LOOM_NODES_EDITOR", "myeditor --wait")
+    reload_settings()
+    monkeypatch.setattr(nodes_mod.subprocess, "Popen", lambda *a, **k: None)
+    r = client.post("/api/nodes/open", json={"path": str(node)})
+    assert r.status_code == 200
+    assert r.json()["via"] == "editor"
+
+
 # ── secrets ─────────────────────────────────────────────────────────────────
 
 

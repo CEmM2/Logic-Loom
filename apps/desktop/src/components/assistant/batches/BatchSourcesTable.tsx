@@ -246,8 +246,7 @@ function ZoteroPicker({
 
       {env?.library_reason && (
         <div className="mb-2 rounded border border-amber-400/40 bg-amber-50/60 px-2 py-1 text-[11px] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-          Zotero library unavailable: {env.library_reason}
-          {env.bbt_path ? ` (${env.bbt_path})` : ""}
+          {describeLibraryReason(env.library_reason, env.bbt_path ?? null)}
         </div>
       )}
 
@@ -468,6 +467,27 @@ function PreviewDrawer({
 
 // ── Manual add ─────────────────────────────────────────────────────────────
 
+/**
+ * Plain-language text for the Zotero picker's ``library_reason`` codes.
+ * The raw code ("bbt-path-unset") used to be shown as is (v0.3.1 QA).
+ */
+export function describeLibraryReason(reason: string, bbtPath: string | null): string {
+  if (reason === "bbt-path-unset") {
+    return (
+      "Zotero is not connected. Set the Better BibTeX export path (bbt_json) " +
+      "in zsum ▸ Settings, then search again."
+    );
+  }
+  if (reason === "bbt-file-missing") {
+    return (
+      `Zotero is not connected: the Better BibTeX export${bbtPath ? ` at ${bbtPath}` : ""} ` +
+      "was not found. Check that Zotero is running with a Better BibTeX auto-export " +
+      "to that path, or fix bbt_json in zsum ▸ Settings."
+    );
+  }
+  return `Zotero library unavailable: ${reason}${bbtPath ? ` (${bbtPath})` : ""}`;
+}
+
 function ManualAdd({
   existing,
   onAdd,
@@ -593,6 +613,7 @@ function ManualAdd({
               type="button"
               data-testid="add-source-submit"
               disabled={busy || !title.trim()}
+              title={title.trim() ? undefined : "Type a source title first."}
               onClick={submitFreeText}
               className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground disabled:opacity-50"
             >

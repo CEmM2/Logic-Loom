@@ -336,7 +336,14 @@ function PreviewList({ preview }: { preview: EffectivePromptsManifest }) {
   );
 
   if (entries.length === 0) {
-    return <p className="text-xs text-muted-foreground">No prompt variants resolved.</p>;
+    return (
+      <p className="text-xs text-muted-foreground" data-testid="preview-empty">
+        No prompt variants are selected for this run: neither the active prompt
+        profile, the batch nor this dialog picks one. Each step will use its
+        built-in default prompt. To override it, choose a profile or variant in
+        the Prompts section.
+      </p>
+    );
   }
   return (
     <ul className="space-y-2">

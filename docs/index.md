@@ -28,6 +28,9 @@ Every workflow belongs to one of six modes, picked from the top bar.
 Release builds include every extra. When a mode's requirements are missing, its tabs
 show a setup message instead of failing.
 
+The top bar also holds the theme switch (system, light, dark) and a **Logo** switch
+for the backdrop logo behind every page: dimmed (the default), hidden, or full.
+
 ## Where to start
 
 - **Using the app:** [Install](install/index.md), then [First run](install/first-run.md).

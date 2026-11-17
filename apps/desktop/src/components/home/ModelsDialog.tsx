@@ -225,6 +225,7 @@ export function ModelsDialog({ open, onClose }: Props) {
                     type="button"
                     onClick={() => onInstall(customModel)}
                     disabled={!customModel.trim() || installMutation.isPending}
+                    title={customModel.trim() ? undefined : "Type a model name first."}
                     className="rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {pendingModel === customModel.trim() && installMutation.isPending

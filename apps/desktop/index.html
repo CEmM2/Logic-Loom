@@ -2,13 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri + React + Typescript</title>
+    <title>Logic-Loom</title>
     <script>
       // Apply the persisted theme before React mounts to avoid a flash of the
       // wrong theme. Keep the storage key and resolution logic in sync with
-      // src/hooks/useTheme.ts.
+      // src/hooks/useTheme.ts and
+      // src/hooks/useWatermark.ts.
       (function () {
         try {
           var t = localStorage.getItem("logic-loom-theme") || "system";
@@ -17,6 +18,9 @@
             (t === "system" &&
               window.matchMedia("(prefers-color-scheme: dark)").matches);
           if (dark) document.documentElement.classList.add("dark");
+          var w = localStorage.getItem("logic-loom-watermark");
+          document.documentElement.dataset.watermark =
+            w === "full" || w === "off" ? w : "dim";
         } catch (e) {}
       })();
     </script>

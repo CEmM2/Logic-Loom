@@ -52,7 +52,9 @@ export async function readNode(path: string): Promise<NodeContent> {
   return api<NodeContent>(`/api/nodes/file?${new URLSearchParams({ path })}`);
 }
 
-export async function openInEditor(path: string): Promise<{ status: string; cmd: string }> {
+export async function openInEditor(
+  path: string,
+): Promise<{ status: string; cmd: string; via?: "editor" | "system" }> {
   return api("/api/nodes/open", {
     method: "POST",
     headers: { "content-type": "application/json" },

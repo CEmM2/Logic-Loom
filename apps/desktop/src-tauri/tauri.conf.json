@@ -24,6 +24,9 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "category": "Education",
+    "shortDescription": "Desktop workspace for research papers, AKMS knowledge nodes and MechDSL",
+    "longDescription": "Logic-Loom is a desktop workspace that gathers papers from Zotero, summarizes them, links them into an AKMS knowledge graph, and compiles MechDSL models.",
     "macOS": {
       "infoPlist": "Info.plist",
       "exceptionDomain": "localhost"

@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 
 import { ThemeToggle } from "./ThemeToggle";
+import { WatermarkToggle } from "./WatermarkToggle";
 
 export type Mode = "zsum" | "akms" | "assistant" | "mechdsl" | "failure-memory" | "records";
 
@@ -80,6 +81,7 @@ export function TopModeNav({ currentMode, onModeChange }: TopModeNavProps) {
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
+          <WatermarkToggle />
           <Link
             to="/settings"
             className="rounded px-3 py-1 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50"

@@ -45,6 +45,7 @@ export function BatchNotebookPanel({
           type="button"
           data-testid="notebook-save"
           disabled={!dirty || saving}
+          title={dirty ? undefined : "Type or change the notebook id first."}
           onClick={() => onSave(notebookId.trim() || null)}
           className="rounded bg-primary px-3 py-1 text-sm text-primary-foreground disabled:opacity-50"
         >

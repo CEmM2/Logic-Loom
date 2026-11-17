@@ -183,8 +183,20 @@ export default function NodesRoute() {
     enabled: !!selectedPath,
   });
 
-  const handleOpen = () => {
-    if (selectedPath) openInEditor(selectedPath).catch(() => {});
+  const handleOpen = async () => {
+    if (!selectedPath) return;
+    setCopyToVaultStatus(null);
+    try {
+      const result = await openInEditor(selectedPath);
+      setCopyToVaultStatus(
+        result.via === "editor"
+          ? `Opened with: ${result.cmd}`
+          : "Sent to your system's default app for this file type. If nothing opened, " +
+              "set an editor command under zsum ▸ Settings ▸ Nodes Review.",
+      );
+    } catch (err) {
+      setCopyToVaultStatus(`Could not open the file: ${formatApiError(err)}`);
+    }
   };
 
   const handleCopyToVault = async () => {

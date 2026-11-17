@@ -221,13 +221,12 @@ describe("Prompt Library page", () => {
       /default/,
     );
 
-    // The resolve call carried the editor's current text as a
-    // request-level override for the current slot — this is the
-    // profile-aware resolve path.
+    // The resolve call pins this variant to its slot by *reference*
+    // (`<source>:<slot>.<id>`), the format the backend resolver parses.
     expect(promptsApi.resolveEffectivePrompts).toHaveBeenCalledWith(
       expect.objectContaining({
         request_overrides: expect.objectContaining({
-          "akms.summarize": "Original summarize text.",
+          "akms.summarize": "user:akms.summarize.summarize-default",
         }),
       }),
     );
