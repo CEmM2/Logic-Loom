@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -33,6 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field
 logger = logging.getLogger(__name__)
 
 from ..config import Settings
+from .providers.errors import ProviderError, ProviderRateLimited
 from .providers.openalex import OpenAlexClient, ProviderSearchFilters
 from .providers.semantic_scholar import SemanticScholarClient
 
@@ -368,6 +370,28 @@ def merge_results(*provider_lists: list[DiscoveredPaper]) -> list[DiscoveredPape
 # ---------------------------------------------------------------------------
 
 
+#: Providers ``search`` can query, in merge order.
+SEARCH_PROVIDERS: tuple[str, ...] = ("openalex", "semantic_scholar")
+
+#: Longest wait before the single retry after a provider rate limit.
+RATE_LIMIT_RETRY_CAP_SECONDS = 5
+
+
+def _provider_error_entry(provider: str, exc: BaseException) -> dict[str, Any]:
+    if isinstance(exc, ProviderRateLimited):
+        code = "provider_rate_limited"
+    elif isinstance(exc, ProviderError):
+        code = "provider_error"
+    else:
+        code = "provider_unavailable"
+    return {
+        "provider": provider,
+        "error": code,
+        "message": str(exc) or exc.__class__.__name__,
+        "retry_after": getattr(exc, "retry_after", None),
+    }
+
+
 class PaperDiscoveryService:
     """Discovery orchestrator — provider clients + normalisers + merge.
 
@@ -414,43 +438,68 @@ class PaperDiscoveryService:
         Tolerates per-provider failures: if one provider raises a
         :class:`ProviderError` (rate limit, timeout, network error) the
         other's results are still returned. Both failing propagates the
-        first error so the route layer can surface it. Provider errors are
-        logged so the user can see which side degraded.
+        first error so the route layer can surface it. Callers that need to
+        know which provider degraded use :meth:`search_with_status`.
+        """
+        papers, _errors = await self.search_with_status(query, filters=filters, limit=limit)
+        return papers
+
+    async def search_with_status(
+        self,
+        query: str,
+        *,
+        filters: ProviderSearchFilters | None = None,
+        limit: int = 25,
+        providers: Sequence[str] = SEARCH_PROVIDERS,
+    ) -> tuple[list[DiscoveredPaper], list[dict[str, Any]]]:
+        """Search the chosen providers; return merged papers and per-provider errors.
+
+        Each provider gets one retry after a rate limit, waiting its
+        ``Retry-After`` (capped at :data:`RATE_LIMIT_RETRY_CAP_SECONDS`, 1s when
+        absent). A provider that still fails is reported in the error list
+        (``provider``, ``error``, ``message``, ``retry_after``) instead of only
+        being logged. When every chosen provider fails, the first error is
+        raised so the route can map it to an HTTP status.
         """
         import asyncio
 
-        oa_task = asyncio.create_task(
-            self.openalex.search(query, filters=filters, limit=limit)
-        )
-        s2_task = asyncio.create_task(
-            self.semantic_scholar.search(query, filters=filters, limit=limit)
-        )
-        oa_result, s2_result = await asyncio.gather(
-            oa_task, s2_task, return_exceptions=True
-        )
+        calls = {
+            "openalex": lambda: self.openalex.search(query, filters=filters, limit=limit),
+            "semantic_scholar": lambda: self.semantic_scholar.search(
+                query, filters=filters, limit=limit
+            ),
+        }
+        chosen = [p for p in SEARCH_PROVIDERS if p in providers]
 
-        oa_papers: list[DiscoveredPaper] = []
-        s2_papers: list[DiscoveredPaper] = []
+        async def run(name: str) -> Any:
+            try:
+                return await calls[name]()
+            except ProviderRateLimited as exc:
+                wait = min(exc.retry_after or 1, RATE_LIMIT_RETRY_CAP_SECONDS)
+                logger.info("%s rate limited; retrying once in %ss", name, wait)
+                await asyncio.sleep(wait)
+                return await calls[name]()
 
-        if isinstance(oa_result, BaseException):
-            logger.warning("OpenAlex search failed: %s", oa_result)
-        else:
-            oa_papers = [
-                normalize_openalex(entry) for entry in (oa_result.get("results") or [])
-            ]
+        results = await asyncio.gather(*(run(n) for n in chosen), return_exceptions=True)
 
-        if isinstance(s2_result, BaseException):
-            logger.warning("Semantic Scholar search failed: %s", s2_result)
-        else:
-            s2_papers = [
-                normalize_semantic_scholar(entry) for entry in (s2_result.get("data") or [])
-            ]
+        lists: list[list[DiscoveredPaper]] = []
+        errors: list[dict[str, Any]] = []
+        first_error: BaseException | None = None
+        for name, result in zip(chosen, results, strict=True):
+            if isinstance(result, BaseException):
+                logger.warning("%s search failed: %s", name, result)
+                first_error = first_error or result
+                errors.append(_provider_error_entry(name, result))
+            elif name == "openalex":
+                lists.append([normalize_openalex(e) for e in (result.get("results") or [])])
+            else:
+                lists.append(
+                    [normalize_semantic_scholar(e) for e in (result.get("data") or [])]
+                )
 
-        # If both providers failed, surface whichever error came first.
-        if isinstance(oa_result, BaseException) and isinstance(s2_result, BaseException):
-            raise oa_result
-
-        return merge_results(oa_papers, s2_papers)
+        if chosen and len(errors) == len(chosen) and first_error is not None:
+            raise first_error
+        return merge_results(*lists), errors
 
     def get_provider_status(self) -> dict[str, Any]:
         """Return a snapshot of provider configuration (no network calls).

@@ -1,21 +1,21 @@
 """FastAPI routes for the Learn plugin.
 
-All six endpoints delegate to :mod:`..adapters.learn_adapter`; zero compiler
+All five endpoints delegate to :mod:`..adapters.learn_adapter`; zero compiler
 logic lives here. The adapter itself is always importable whether or
 not ``akms_learn`` is installed, so the router can be mounted unconditionally.
 
 Degrade-gracefully behavior per endpoint type:
   GET  /status, /profiles, /exporters — always 200; return empty payload when
     the plugin is unavailable (never 503 on read-only discovery endpoints).
-  POST /compile, /export — return structured 503 when
+  POST /compile — returns a structured 503 when
     ``akms_learn_available()`` returns False (mutating/compiling paths only).
 
 Route summary (prefix ``/api/learn`` applied at mount in main.py):
   GET  /status
   GET  /profiles
   GET  /exporters
-  POST /compile
-  POST /export
+  POST /compile   (also writes the requested exports; there is no separate
+                   /export endpoint — the 501 stub was removed)
   GET  /artifacts/{artifact_id}/{path:path}
 
 Artifact persistence and path-traversal-proof file serving for /artifacts
@@ -1027,47 +1027,6 @@ def learn_compile(
         cache_dir=cache_dir,
         packet_path=packet_path,
         exports=exports,
-    )
-
-
-# ---------------------------------------------------------------------------
-# POST /export  (minimal stub)
-# ---------------------------------------------------------------------------
-
-
-class ExportRequest(BaseModel):
-    """Minimal export request stub.
-
-    A formal request contract has not been defined yet.
-    """
-
-    artifact_id: str
-    exporters: list[str] = Field(default_factory=list)
-
-
-@router.post("/export")
-def learn_export(
-    body: ExportRequest,
-    settings: Settings = Depends(get_settings),
-) -> Any:
-    """Trigger an export of an existing compiled artifact.
-
-    Minimal stub — returns 503 when plugin unavailable, 501 when plugin
-    present. Path-traversal-safe artifact serving is already implemented (see
-    ``GET /artifacts/{artifact_id}/{path}``); only the export *dispatch* is
-    still deferred.
-
-    The request/response contract is not yet formalised.
-    """
-    if not learn_adapter.akms_learn_available():
-        return _plugin_unavailable_503()
-
-    # Artifact persistence + serving are implemented; only the export
-    # dispatch on this endpoint is still deferred.
-    raise http_error(
-        501,
-        "not_implemented",
-        "Export dispatch is not yet implemented.",
     )
 
 

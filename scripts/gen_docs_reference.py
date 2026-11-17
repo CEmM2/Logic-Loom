@@ -113,6 +113,10 @@ def http_api_page() -> tuple[str, list[str]]:
     for path, ops in schema.get("paths", {}).items():
         if not path.startswith("/api/"):
             continue
+        # The picker is mounted only when its data source exists, so listing
+        # it would make this page depend on the build machine.
+        if path.startswith("/api/picker/"):
+            continue
         group = "/".join(path.split("/")[:3])
         for method, op in ops.items():
             if method.upper() not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
@@ -130,8 +134,9 @@ def http_api_page() -> tuple[str, list[str]]:
         "port is random per launch (see [Architecture](../developers/architecture.md)),",
         "and a running sidecar also serves the full interactive schema at `/docs`.",
         "Route groups that need an optional extra appear only when it is installed. The",
-        "AKMS batch picker is a mounted sub-app at `/api/picker` with its own schema, so",
-        "its routes are not listed here; see the",
+        "AKMS batch picker is a mounted sub-app at `/api/picker`. A running sidecar lists",
+        "its routes in `/openapi.json` under the `akms-picker` tag; they are not listed",
+        "here. See the",
         "[AKMS batch picker HTTP API](https://cemm2.github.io/AKMS/reference/nodes-gen/batch-picker/api-reference.html).",
         "",
     ]

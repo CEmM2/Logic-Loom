@@ -6,8 +6,9 @@ The desktop shell talks to the `logic-loom-api` sidecar over these routes. The
 port is random per launch (see [Architecture](../developers/architecture.md)),
 and a running sidecar also serves the full interactive schema at `/docs`.
 Route groups that need an optional extra appear only when it is installed. The
-AKMS batch picker is a mounted sub-app at `/api/picker` with its own schema, so
-its routes are not listed here; see the
+AKMS batch picker is a mounted sub-app at `/api/picker`. A running sidecar lists
+its routes in `/openapi.json` under the `akms-picker` tag; they are not listed
+here. See the
 [AKMS batch picker HTTP API](https://cemm2.github.io/AKMS/reference/nodes-gen/batch-picker/api-reference.html).
 
 Generated from API version `0.3.1`.
@@ -139,7 +140,7 @@ Generated from API version `0.3.1`.
 | `POST` | `/api/graph/issues/scan` | Graph Issue Scan |
 | `GET` | `/api/graph/nodes` | Graph Nodes |
 | `POST` | `/api/graph/refresh` | Graph Refresh |
-| `GET` | `/api/graph/refresh/stream` | Graph Refresh Stream |
+| `POST` | `/api/graph/refresh/stream` | Graph Refresh Stream |
 | `GET` | `/api/graph/status` | Graph Status |
 
 ## `/api/learn`
@@ -148,7 +149,6 @@ Generated from API version `0.3.1`.
 | --- | --- | --- |
 | `GET` | `/api/learn/artifacts/{artifact_id}/{path}` | Learn Artifact File |
 | `POST` | `/api/learn/compile` | Learn Compile |
-| `POST` | `/api/learn/export` | Learn Export |
 | `GET` | `/api/learn/exporters` | Learn Exporters |
 | `GET` | `/api/learn/profiles` | Learn Profiles |
 | `GET` | `/api/learn/providers` | Learn Providers |

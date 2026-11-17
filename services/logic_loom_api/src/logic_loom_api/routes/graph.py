@@ -222,11 +222,18 @@ def graph_refresh(
     return GraphStatus(**status, **readiness)
 
 
-@router.get("/refresh/stream")
+@router.post("/refresh/stream")
 async def graph_refresh_stream(
-    skip_invalid_files: bool = Query(default=False),
+    payload: GraphRefreshRequest | None = None,
     settings: Settings = Depends(get_settings),
 ) -> EventSourceResponse:
+    """Rebuild the graph cache, streaming progress as Server-Sent Events.
+
+    A POST, because it writes the cache (it was a GET so EventSource could
+    call it). Events: ``progress``, then one of ``done``, ``review-required``
+    or ``failed``.
+    """
+    skip_invalid_files = bool(payload and payload.skip_invalid_files)
     queue: asyncio.Queue[dict[str, str] | None] = asyncio.Queue()
     loop = asyncio.get_running_loop()
 

@@ -56,6 +56,9 @@ class _StubDiscovery(PaperDiscoveryService):
         self._papers = papers
         self.search_calls = 0
 
+    async def search_with_status(self, query, *, filters=None, limit=25, providers=()):  # type: ignore[override]
+        return await self.search(query, filters=filters, limit=limit), []
+
     async def search(self, query, *, filters=None, limit=25):  # type: ignore[override]
         self.search_calls += 1
         return list(self._papers)

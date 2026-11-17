@@ -7,7 +7,6 @@ import hashlib
 import json
 import logging
 import os
-import shlex
 import tomllib
 import uuid
 
@@ -16,12 +15,15 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from ..config import Settings, _user_config_path
 from ..deps import get_settings, reload_settings
+from ..errors import envelope
 from ..runs.registry import get_registry
+from ..safe_paths import split_command
 from ..zsum_pipeline.bbt import bbt_status
 from ..zsum_pipeline.config_doc import Update, read_doc, write_doc
 from ..zsum_pipeline.index_reader import compute_stats, read_index_detailed
@@ -460,7 +462,7 @@ def _config_doc_payload(
 
 
 def build_setup_model_argv(settings: Settings, model: str) -> tuple[list[str], Path]:
-    cmd_parts = shlex.split(settings.zsum_python_cmd)
+    cmd_parts = split_command(settings.zsum_python_cmd)
     if not cmd_parts:
         raise ValueError("zsum_python_cmd is empty")
 
@@ -802,8 +804,12 @@ async def test_environment(settings: Settings = Depends(get_settings)) -> dict[s
 
     Mirrors the "Test" button in the Obsidian "Zotero Summarizer" plugin —
     a quick reachability check for the configured Python environment.
+
+    A non-zero exit is a failed test: the answer is a 502 ``zsum_test_failed``
+    envelope whose ``detail`` carries the same fields as a success (it used to
+    be a 200 with ``exit_code`` 1, which clients read as success).
     """
-    cmd_parts = shlex.split(settings.zsum_python_cmd)
+    cmd_parts = split_command(settings.zsum_python_cmd)
     if not cmd_parts:
         raise HTTPException(400, detail="zsum_python_cmd is empty")
     config_path = settings.effective_zsum_config_path()
@@ -825,13 +831,23 @@ async def test_environment(settings: Settings = Depends(get_settings)) -> dict[s
     except FileNotFoundError as e:
         # Bubble up as 4xx so the UI can show "command not found" rather than 500.
         raise HTTPException(400, detail=f"command not found: {cmd_parts[0]} ({e})")
-    return {
+    result = {
         "exit_code": proc.returncode,
         "stdout": stdout.decode("utf-8", errors="replace"),
         "stderr": stderr.decode("utf-8", errors="replace"),
         "cmd": argv,
         "cwd": str(cwd),
     }
+    if proc.returncode != 0:
+        return JSONResponse(
+            envelope(
+                "zsum_test_failed",
+                f"zsum stats exited with code {proc.returncode}",
+                result,
+            ),
+            status_code=502,
+        )
+    return result
 
 
 @router.get("/runs/{run_id}/stream")

@@ -129,6 +129,11 @@ def build_picker_app(settings: Settings) -> FastAPI:
     plan_md = _resolve_plan_md(settings)
     paths = _build_paths(settings, Paths, plan_md=plan_md)
     app = create_app(paths)
+    # Same error envelope as the rest of /api/* ({"error": {code, message,
+    # detail}}), instead of FastAPI's bare {"detail": ...}.
+    from ..errors import install_handlers
+
+    install_handlers(app)
 
     workspace = Path(settings.akms_workspace).expanduser()
     if plan_md == workspace / _PLAN_CACHE_RELPATH:

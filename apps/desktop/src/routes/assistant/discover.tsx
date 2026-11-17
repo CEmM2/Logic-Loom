@@ -17,6 +17,7 @@ import { Link } from "react-router-dom";
 
 import {
   discoverSearch,
+  type DiscoverProviderError,
   type DiscoverSearchFilters,
   type DiscoverSearchResponse,
   type DiscoveredPaperWithMatch,
@@ -33,6 +34,24 @@ import { AddToBatchDialog } from "../../components/assistant/discover/AddToBatch
 import { CreateBatchFromResultsDialog } from "../../components/assistant/discover/CreateBatchFromResultsDialog";
 
 import { ASSISTANT_ROUTE_BATCHES } from "./routes";
+
+const PROVIDER_NAMES: Record<string, string> = {
+  openalex: "OpenAlex",
+  semantic_scholar: "Semantic Scholar",
+};
+
+export function describeProviderError(e: DiscoverProviderError): string {
+  const name = PROVIDER_NAMES[e.provider] ?? e.provider;
+  if (e.error === "provider_rate_limited") {
+    const wait = e.retry_after ? ` Try again in about ${e.retry_after}s.` : " Try again shortly.";
+    const key =
+      e.provider === "semantic_scholar"
+        ? " A Semantic Scholar API key (Settings) raises the limit."
+        : "";
+    return `${name} is rate-limiting requests, so these results come from the other provider only.${wait}${key}`;
+  }
+  return `${name} did not answer (${e.message}), so these results come from the other provider only.`;
+}
 
 export default function AssistantDiscoverRoute() {
   // Filter state — pinned default: only_with_pdf = false (HARD RULE).
@@ -65,6 +84,7 @@ export default function AssistantDiscoverRoute() {
   });
   const results = searchMutation.data?.results ?? [];
   const cached = searchMutation.data?.cached ?? false;
+  const providerErrors = searchMutation.data?.provider_errors ?? [];
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -156,6 +176,17 @@ export default function AssistantDiscoverRoute() {
           className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700"
         >
           {searchMutation.error?.message}
+        </div>
+      ) : null}
+
+      {providerErrors.length > 0 ? (
+        <div
+          data-testid="discover-provider-errors"
+          className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+        >
+          {providerErrors.map((e) => (
+            <p key={e.provider}>{describeProviderError(e)}</p>
+          ))}
         </div>
       ) : null}
 

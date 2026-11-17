@@ -38,11 +38,11 @@ class TestLearnRoutes:
     """Integration tests: learn router registration + reachability."""
 
     @pytest.mark.integration
-    def test_all_six_routes_registered(self) -> None:
-        """Verifies: status, profiles, exporters, compile, export, artifacts/{id}/{path}
+    def test_all_learn_routes_registered(self) -> None:
+        """Verifies: status, profiles, exporters, compile, artifacts/{id}/{path}
         are all registered on the FastAPI app.
 
-        Requirement: 'All six routes resolve and are reachable via the test client.'
+        Requirement: 'All learn routes resolve and are reachable via the test client.'
         Passes when: every expected path+method appears in app.routes.
         """
         # Collect all (path, method) pairs from every served route. Read them
@@ -60,7 +60,6 @@ class TestLearnRoutes:
             ("/api/learn/profiles", "GET"),
             ("/api/learn/exporters", "GET"),
             ("/api/learn/compile", "POST"),
-            ("/api/learn/export", "POST"),
             ("/api/learn/artifacts/{artifact_id}/{path}", "GET"),
         ]
 
@@ -101,3 +100,8 @@ class TestLearnRoutes:
         )
         # reason should be a non-empty string on the unavailable path
         assert body2.get("reason"), "Unavailable path should include a non-empty reason"
+
+
+def test_learn_export_stub_removed() -> None:
+    """The deferred 501 ``POST /api/learn/export`` stub is gone (compile exports)."""
+    assert "/api/learn/export" not in api.openapi()["paths"]

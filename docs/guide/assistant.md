@@ -27,7 +27,11 @@ papers" card takes you there). A batch's **Runs** tab lists the workflow runs ma
 
 Set `openalex_user_email` to use the OpenAlex polite pool (required for OpenAlex
 requests). API keys for OpenAlex and Semantic Scholar are optional and raise rate limits.
-Results are cached in the Assistant workspace.
+If one service is rate-limiting or does not answer, Discover still shows the other
+service's results with a note naming the service that failed; a rate-limited request
+is retried once after a short wait. Searches with a failed provider are not cached, so
+running the search again later gets fresh results. Other results are cached in the
+Assistant workspace.
 
 ## Workspace search
 

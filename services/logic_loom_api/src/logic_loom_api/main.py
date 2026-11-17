@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 
 from . import __version__
 from .adapters.picker_adapter import build_picker_app
@@ -359,10 +360,46 @@ except Exception as e:  # noqa: BLE001 — preserve degrade-gracefully
 # yet and this attempt is skipped. The lifespan therefore retries the mount once
 # the workspace exists (see `_mount_picker_after_bootstrap`); without the retry
 # the picker stayed unavailable until the app was restarted.
+PICKER_PREFIX = "/api/picker"
+PICKER_TAG = "akms-picker"
+
+
+def _openapi_with_picker() -> dict:
+    """The app's OpenAPI schema plus the mounted picker's routes.
+
+    A mounted sub-app is invisible to FastAPI's schema, so the picker's 18
+    routes were missing from /openapi.json. Its paths are merged in under
+    ``/api/picker`` with the ``akms-picker`` tag; component schemas are
+    added where the name is free.
+    """
+    if api.openapi_schema:
+        return api.openapi_schema
+    schema = FastAPI.openapi(api)
+    for route in api.routes:
+        if isinstance(route, Mount) and route.path == PICKER_PREFIX and isinstance(route.app, FastAPI):
+            sub = route.app.openapi()
+            for path, item in sub.get("paths", {}).items():
+                for op in item.values():
+                    if isinstance(op, dict):
+                        op["tags"] = [PICKER_TAG]
+                        if "operationId" in op:
+                            op["operationId"] = f"picker_{op['operationId']}"
+                schema.setdefault("paths", {})[PICKER_PREFIX + path] = item
+            components = schema.setdefault("components", {}).setdefault("schemas", {})
+            for name, component in sub.get("components", {}).get("schemas", {}).items():
+                components.setdefault(name, component)
+    api.openapi_schema = schema
+    return schema
+
+
+api.openapi = _openapi_with_picker  # type: ignore[method-assign]
+
+
 def _mount_picker() -> bool:
     """Mount the batch picker; log and return False when it cannot be built."""
     try:
-        api.mount("/api/picker", build_picker_app(Settings.load()))
+        api.mount(PICKER_PREFIX, build_picker_app(Settings.load()))
+        api.openapi_schema = None  # rebuild with the picker's routes
     except (RuntimeError, FileNotFoundError, OSError) as e:
         # Missing AKMS / missing zsumbib.json / unreadable state file: log and
         # continue. The picker namespace will 404 until config is fixed.

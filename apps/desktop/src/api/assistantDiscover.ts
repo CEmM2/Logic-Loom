@@ -53,9 +53,19 @@ export type DiscoverSearchBody = {
   limit?: number;
 };
 
+/** A provider that failed during a search whose other provider answered. */
+export type DiscoverProviderError = {
+  provider: "openalex" | "semantic_scholar" | string;
+  error: "provider_rate_limited" | "provider_error" | "provider_unavailable" | string;
+  message: string;
+  retry_after: number | null;
+};
+
 export type DiscoverSearchResponse = {
   results: DiscoveredPaperWithMatch[];
   cached: boolean;
+  /** Empty when every provider answered; absent from older sidecars. */
+  provider_errors?: DiscoverProviderError[];
 };
 
 export type DiscoverMergeBody = {

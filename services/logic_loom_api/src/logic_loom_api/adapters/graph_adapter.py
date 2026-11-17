@@ -252,6 +252,24 @@ def graph_issue_ignore_path(settings: Settings) -> Path:
     return graph_cache_path(settings).parent / "ignored_source_issues.json"
 
 
+def _utc_iso(value: Any) -> Any:
+    """Return an ISO timestamp in UTC with an explicit offset.
+
+    The AKMS graph writer stamps ``generated_at`` in naive local time, while
+    the issue log uses UTC; a naive value is read as local time and converted,
+    so both endpoints report the same clock. Unparseable values pass through.
+    """
+    if not isinstance(value, str) or not value:
+        return value
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    if parsed.tzinfo is None:
+        parsed = parsed.astimezone()  # interpret as local time
+    return parsed.astimezone(UTC).isoformat()
+
+
 def read_graph_status(settings: Settings) -> dict[str, Any]:
     cache_path = graph_cache_path(settings)
     meta = _read_graph_json_meta(cache_path)
@@ -259,7 +277,7 @@ def read_graph_status(settings: Settings) -> dict[str, Any]:
         "cache_exists": cache_path.is_file(),
         "cache_path": str(cache_path),
         "repo_graph_path": _opt_path_str(repo_graph_path(settings)),
-        "generated_at": meta.get("generated_at"),
+        "generated_at": _utc_iso(meta.get("generated_at")),
         "node_count": int(meta.get("node_count") or 0),
         "edge_count": int(meta.get("edge_count") or 0),
         "repo_id": meta.get("repo_id"),

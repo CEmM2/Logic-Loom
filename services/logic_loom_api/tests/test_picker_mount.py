@@ -95,6 +95,16 @@ def test_main_app_serves_through_prefix(settings: Settings) -> None:
         body = r.json()
         assert "results" in body and isinstance(body["results"], list)
 
+        # The picker's routes are in the main OpenAPI schema (QA batch 6) ...
+        paths = client.get("/openapi.json").json()["paths"]
+        assert "/api/picker/api/batches" in paths
+        assert paths["/api/picker/api/batches"]["get"]["tags"] == ["akms-picker"]
+        assert "/api/app/health" in paths
+        # ... and its errors use the shared envelope.
+        missing = client.get("/api/picker/api/batches/R99_B99")
+        assert missing.status_code == 404
+        assert missing.json()["error"]["code"] == "not_found"
+
 
 def test_picker_mounts_without_akms_source_checkout(settings: Settings) -> None:
     """A missing ``akms_repo`` is not an error: the picker builds from the

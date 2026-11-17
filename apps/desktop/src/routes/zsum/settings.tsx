@@ -12,6 +12,7 @@ import {
   type ConfigUpdate,
   type ZsumTestResult,
 } from "../../api/app";
+import { ApiError } from "../../api/client";
 import { postConfigDoc } from "../../api/zsum";
 import { ConfigEditor } from "../../components/zsum/ConfigEditor";
 import { ZSUM_CONFIG_NAV_GROUPS } from "../../zsum/config-nav";
@@ -388,7 +389,13 @@ function CommandBlock({
     try {
       setResult(await testZsumEnvironment());
     } catch (e) {
-      setTestError((e as Error).message);
+      // A failed run is a 502 whose envelope detail holds the run's output.
+      const detail = (e as ApiError).detail as { error?: { detail?: ZsumTestResult } } | null;
+      if (e instanceof ApiError && detail?.error?.detail?.exit_code !== undefined) {
+        setResult(detail.error.detail);
+      } else {
+        setTestError((e as Error).message);
+      }
     } finally {
       setTesting(false);
     }

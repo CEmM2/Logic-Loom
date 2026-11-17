@@ -1,4 +1,4 @@
-import { api, apiUrl } from "./client";
+import { api, apiFetch } from "./client";
 
 export type GraphDirection = "in" | "out" | "both";
 
@@ -162,6 +162,38 @@ export async function refreshGraph(options: GraphRefreshOptions = {}) {
   });
 }
 
+/**
+ * Split an SSE byte stream into `{event, data}` messages. Exported for tests.
+ * Handles CRLF, multi-line `data:` fields and comments (`:` lines).
+ */
+export function parseSseChunk(buffer: string): { messages: { event: string; data: string }[]; rest: string } {
+  const messages: { event: string; data: string }[] = [];
+  const normalized = buffer.replace(/\r\n/g, "\n");
+  const blocks = normalized.split("\n\n");
+  const rest = blocks.pop() ?? "";
+  for (const block of blocks) {
+    let event = "message";
+    const data: string[] = [];
+    for (const line of block.split("\n")) {
+      if (!line || line.startsWith(":")) continue;
+      const idx = line.indexOf(":");
+      const field = idx === -1 ? line : line.slice(0, idx);
+      const value = idx === -1 ? "" : line.slice(idx + 1).replace(/^ /, "");
+      if (field === "event") event = value;
+      else if (field === "data") data.push(value);
+    }
+    if (data.length > 0) messages.push({ event, data: data.join("\n") });
+  }
+  return { messages, rest };
+}
+
+/**
+ * Regenerate the graph with streamed progress.
+ *
+ * `POST /api/graph/refresh/stream` answers with Server-Sent Events. It used to
+ * be a GET (EventSource only does GET), which let a plain link rebuild the
+ * cache; the request is now a POST read with `fetch` and parsed here.
+ */
 export async function streamGraphRefresh(
   options: GraphRefreshOptions,
   onProgress: (progress: GraphRefreshProgress) => void,
@@ -169,81 +201,92 @@ export async function streamGraphRefresh(
   onError: (message: string) => void,
   onReviewRequired?: (report: GraphIssueLog) => void,
 ): Promise<() => void> {
-  const url = new URL(await apiUrl("/api/graph/refresh/stream"));
-  if (options.skipInvalidFiles) {
-    url.searchParams.set("skip_invalid_files", "true");
-  }
-  const es = new EventSource(url.toString());
+  const controller = new AbortController();
   let settled = false;
 
-  const cleanup = () => {
-    es.onmessage = null;
-    es.onerror = null;
-    es.close();
-  };
-
-  es.addEventListener("progress", (event) => {
+  const handle = (event: string, data: string) => {
     if (settled) return;
     try {
-      onProgress(JSON.parse((event as MessageEvent).data) as GraphRefreshProgress);
+      if (event === "progress") {
+        onProgress(JSON.parse(data) as GraphRefreshProgress);
+        return;
+      }
+      if (event === "done") {
+        settled = true;
+        onDone(JSON.parse(data) as GraphStatus);
+        return;
+      }
+      if (event === "review-required") {
+        settled = true;
+        const report = JSON.parse(data) as GraphIssueLog;
+        if (onReviewRequired) onReviewRequired(report);
+        else onError(`Graph source review required for ${report.issue_count} file(s).`);
+        return;
+      }
+      if (event === "failed") {
+        settled = true;
+        let message = "Graph generation failed.";
+        try {
+          message = (JSON.parse(data) as { message?: string }).message ?? message;
+        } catch {
+          if (data) message = data;
+        }
+        onError(message);
+      }
     } catch (error) {
       settled = true;
       onError(error instanceof Error ? error.message : String(error));
-      cleanup();
     }
-  });
-
-  es.addEventListener("done", (event) => {
-    if (settled) return;
-    settled = true;
-    try {
-      onDone(JSON.parse((event as MessageEvent).data) as GraphStatus);
-    } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
-    } finally {
-      cleanup();
-    }
-  });
-
-  es.addEventListener("review-required", (event) => {
-    if (settled) return;
-    settled = true;
-    try {
-      const report = JSON.parse((event as MessageEvent).data) as GraphIssueLog;
-      if (onReviewRequired) {
-        onReviewRequired(report);
-      } else {
-        onError(`Graph source review required for ${report.issue_count} file(s).`);
-      }
-    } catch (error) {
-      onError(error instanceof Error ? error.message : String(error));
-    } finally {
-      cleanup();
-    }
-  });
-
-  es.addEventListener("failed", (event) => {
-    if (settled) return;
-    settled = true;
-    const raw = (event as MessageEvent).data;
-    try {
-      const parsed = JSON.parse(raw) as { message?: string };
-      onError(parsed.message ?? "Graph generation failed.");
-    } catch {
-      onError(typeof raw === "string" && raw ? raw : "Graph generation failed.");
-    } finally {
-      cleanup();
-    }
-  });
-
-  es.onerror = () => {
-    if (settled) return;
-    settled = true;
-    onError("Graph generation stream disconnected.");
-    cleanup();
   };
 
-  return cleanup;
+  const run = async () => {
+    let res: Response;
+    try {
+      res = await apiFetch("/api/graph/refresh/stream", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "text/event-stream" },
+        body: JSON.stringify({ skip_invalid_files: Boolean(options.skipInvalidFiles) }),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (!controller.signal.aborted && !settled) {
+        settled = true;
+        onError(error instanceof Error ? error.message : String(error));
+      }
+      return;
+    }
+    if (!res.ok || !res.body) {
+      settled = true;
+      onError(`Graph generation failed: HTTP ${res.status}`);
+      return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parsed = parseSseChunk(buffer);
+        buffer = parsed.rest;
+        for (const m of parsed.messages) handle(m.event, m.data);
+        if (settled) break;
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+    }
+    if (!settled && !controller.signal.aborted) {
+      settled = true;
+      onError("Graph generation stream disconnected.");
+    }
+  };
+  void run();
+
+  return () => {
+    settled = true;
+    controller.abort();
+  };
 }
 
 export async function getGraphNodes(filters: GraphNodeFilters = {}) {

@@ -31,14 +31,15 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ..assistant.discovery import (
+    SEARCH_PROVIDERS,
     DiscoveredPaper,
     PaperDiscoveryService,
     merge_results,
@@ -201,13 +202,30 @@ class DiscoverSearchFiltersBody(BaseModel):
 
 
 class DiscoverSearchBody(BaseModel):
-    """POST /api/assistant/discover/search body."""
+    """POST /api/assistant/discover/search body.
+
+    ``query`` must be non-blank (it is stripped) and at most 500 characters;
+    ``limit`` is 1-100; ``providers`` (optional) chooses which of
+    ``openalex`` / ``semantic_scholar`` to query, and an unknown name is a 422
+    rather than silently ignored.
+    """
 
     model_config = ConfigDict(extra="ignore")
 
-    query: str
+    query: str = Field(min_length=1, max_length=500)
     filters: DiscoverSearchFiltersBody = Field(default_factory=DiscoverSearchFiltersBody)
-    limit: int = 25
+    limit: int = Field(default=25, ge=1, le=100)
+    providers: list[Literal["openalex", "semantic_scholar"]] | None = Field(
+        default=None, min_length=1
+    )
+
+    @field_validator("query")
+    @classmethod
+    def _query_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("query must not be blank")
+        return stripped
 
 
 class DiscoverMergeBody(BaseModel):
@@ -341,6 +359,7 @@ async def discover_search(
         return {
             "results": cached.get("results", []),
             "cached": True,
+            "provider_errors": [],
         }
 
     _CACHE_STATS["misses"] += 1
@@ -352,7 +371,12 @@ async def discover_search(
         work_types=list(body.filters.work_types),
     )
     try:
-        merged = await discovery.search(body.query, filters=filters, limit=body.limit)
+        merged, provider_errors = await discovery.search_with_status(
+            body.query,
+            filters=filters,
+            limit=body.limit,
+            providers=body.providers or SEARCH_PROVIDERS,
+        )
     except ProviderError as exc:
         raise _map_provider_error(exc) from exc
 
@@ -361,8 +385,11 @@ async def discover_search(
         {**paper.model_dump(), "zotero_match": match.model_dump()}
         for paper, match in zip(merged, matches, strict=True)
     ]
-    _cache_write(settings, key, {"results": results})
-    return {"results": results, "cached": False}
+    # A partial result (one provider failed) is not cached: the next search
+    # should try the failed provider again rather than serve 24h of half results.
+    if not provider_errors:
+        _cache_write(settings, key, {"results": results})
+    return {"results": results, "cached": False, "provider_errors": provider_errors}
 
 
 @router.post("/merge")

@@ -268,7 +268,11 @@ class TestGraphRefresh:
         assert "Graph cache missing" in body["error"]["message"]
 
     def test_refresh_stream_emits_progress_and_done(self, client: TestClient) -> None:
-        with client.stream("GET", "/api/graph/refresh/stream?skip_invalid_files=true") as r:
+        # A GET must not rebuild the cache (QA batch 6): only POST is routed.
+        assert client.get("/api/graph/refresh/stream").status_code == 405
+        with client.stream(
+            "POST", "/api/graph/refresh/stream", json={"skip_invalid_files": True}
+        ) as r:
             assert r.status_code == 200
             lines = [line for line in r.iter_lines() if line]
 
@@ -443,3 +447,16 @@ class TestGraphErrors:
         assert "plasticity-von-mises" in {n["id"] for n in nodes.json()}
         stub = cache / "graph" / "no-akms-repo"
         assert stub.is_dir() and not any(stub.iterdir())
+
+def test_graph_status_timestamps_are_utc() -> None:
+    """QA batch 6: graph/status used naive local time, graph/issues UTC."""
+    from datetime import UTC, datetime
+
+    from logic_loom_api.adapters.graph_adapter import _utc_iso
+
+    naive_local = datetime(2026, 11, 17, 12, 0, 0)  # noqa: DTZ001 - naive on purpose
+    expected = naive_local.astimezone().astimezone(UTC).isoformat()
+    assert _utc_iso(naive_local.isoformat()) == expected
+    assert _utc_iso("2026-11-17T10:00:00+02:00") == "2026-11-17T08:00:00+00:00"
+    assert _utc_iso(None) is None
+    assert _utc_iso("not a date") == "not a date"

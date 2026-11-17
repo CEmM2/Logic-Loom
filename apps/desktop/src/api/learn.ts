@@ -332,11 +332,8 @@ export async function compileLearningSource(req: LearnCompileRequest) {
   });
 }
 
-// NOTE: there is intentionally no `exportLearningSource` client. The backend
-// `POST /api/learn/export` is a deferred 501 stub and no UI uses it — the Learn
-// tab exports via `compileLearningSource` (which already persists + advertises
-// `exports`). A client wrapper for the stub was removed as dead/misleading code;
-// add one back if/when `/export` is actually implemented.
+// NOTE: there is no separate export call. The Learn tab exports via
+// `compileLearningSource`, which persists the artifact and returns `exports`.
 
 /**
  * Build the URL for `GET /api/learn/artifacts/{artifact_id}/{path}`.
