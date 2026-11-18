@@ -71,7 +71,11 @@ jobs:
           prefix="Logic-Loom-${ver}/"
           git archive --format=tar.gz --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.tar.gz" HEAD
           git archive --format=zip   --prefix="$prefix" -o "dist/Logic-Loom-${ver}-source.zip"    HEAD
-          ( cd dist && { command -v sha256sum >/dev/null 2>&1 && sha256sum * || shasum -a 256 *; } > SHA256SUMS.txt )
+          # Hash into a temp file outside dist/ and move it in afterwards: a
+          # redirect straight to dist/SHA256SUMS.txt creates the file before the
+          # glob expands, so it would list itself and `sha256sum -c` would fail.
+          ( cd dist && { command -v sha256sum >/dev/null 2>&1 && sha256sum -- * || shasum -a 256 -- *; } > ../SHA256SUMS.txt )
+          mv SHA256SUMS.txt dist/SHA256SUMS.txt
           ls -lh dist/
           cat dist/SHA256SUMS.txt
 
