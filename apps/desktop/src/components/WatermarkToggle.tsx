@@ -3,11 +3,11 @@ import { useWatermark, type Watermark } from "../hooks/useWatermark";
 const ORDER: readonly Watermark[] = ["dim", "off", "full"] as const;
 const LABEL: Record<Watermark, string> = {
   full: "Backdrop logo: full",
-  dim: "Backdrop logo: dimmed",
+  dim: "Backdrop logo: small, in the corner",
   off: "Backdrop logo: hidden",
 };
 
-/** Cycles the backdrop logo dimmed → hidden → full, next to the theme toggle. */
+/** Cycles the backdrop logo corner → hidden → full, next to the theme toggle. */
 export function WatermarkToggle() {
   const { watermark, setWatermark } = useWatermark();
   const next = ORDER[(ORDER.indexOf(watermark) + 1) % ORDER.length];
