@@ -881,7 +881,7 @@ requires-dist = [
     { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0" },
     { name = "tomli-w", specifier = ">=1.0,<2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30,<0.40" },
-    { name = "zotero-summarizer", specifier = ">=1.0,<2" },
+    { name = "zotero-summarizer", specifier = ">=1.2,<2" },
 ]
 provides-extras = ["akms", "mechdsl", "failure-memory", "records", "dev"]
 
@@ -1927,7 +1927,7 @@ wheels = [
 
 [[package]]
 name = "zotero-summarizer"
-version = "1.0.0"
+version = "1.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1939,7 +1939,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rapidfuzz" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/3c/340bd700188712bca365c0753cd7c41c428e32614c55d1197f0b7dc25b9a/zotero_summarizer-1.0.0.tar.gz", hash = "sha256:ff23ddeb418a2ffd55eccad352a06d2db2e2a1c4240fc2f9794e3fcf1addbadf", size = 172879, upload-time = "2026-10-27T17:05:20.128Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/e1/490dc8069de33f3653e3230a6a4b03cb0599fba5b98bda095ea8339e1d25/zotero_summarizer-1.2.0.tar.gz", hash = "sha256:139e1b7f36e680262872a69c6d9353ffdf5eb553cd88992792cf847c48ef92e4", size = 175279, upload-time = "2026-11-18T19:21:29.248Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1a/a5/03896cb9d4b4edbe0ab8b0814c1c6eb0801304807a49b88e67dd24296da5/zotero_summarizer-1.0.0-py3-none-any.whl", hash = "sha256:747e3b5792cb5e18b55752a96cc8122bf1ef125d83e42a0fedf203cfd0b290bc", size = 89158, upload-time = "2026-10-27T17:05:18.878Z" },
+    { url = "https://files.pythonhosted.org/packages/76/7e/814833e9c5d6243973d7ff8390e32d6479dc2804cc18c1a90d5d10166dbc/zotero_summarizer-1.2.0-py3-none-any.whl", hash = "sha256:4300d2be24f4030acfb0ea1654a9b7d77ac31ff128b1635c448100650d6f36cb", size = 90873, upload-time = "2026-11-18T19:21:28.026Z" },
 ]
