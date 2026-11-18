@@ -3,30 +3,23 @@ import { Link } from "react-router-dom";
 
 import bannerUrl from "../assets/banner.png";
 import { api, getApiBase } from "../api/client";
+import { GlobalSearch } from "../components/GlobalSearch";
+import { topLevelModes } from "../components/TopModeNav";
 import { ModelsDialog } from "../components/home/ModelsDialog";
 
 type HealthResponse = { status: string; version: string };
 
-const MODES = [
-  {
-    id: "zsum",
-    label: "Zsum",
-    to: "/zsum",
-    description: "Summarize and publish Zotero literature with the zsum pipeline.",
-  },
-  {
-    id: "akms",
-    label: "AKMS",
-    to: "/akms",
-    description: "Generate and review knowledge nodes — picker, graph, workflows.",
-  },
-  {
-    id: "assistant",
-    label: "Assistant",
-    to: "/assistant",
-    description: "Discover papers and run research workflows over curated batches.",
-  },
-] as const;
+/** Modes that need an optional extra or config before they show anything. */
+const OPTIONAL_MODES: ReadonlySet<string> = new Set(["mechdsl", "failure-memory", "records"]);
+
+/** One card per top-level mode, in mode-switcher order. */
+const MODES = topLevelModes.map((m) => ({
+  id: m.id,
+  label: m.label,
+  to: `/${m.id}`,
+  description: m.subtitle,
+  optional: OPTIONAL_MODES.has(m.id),
+}));
 
 export default function HomeRoute() {
   const [base, setBase] = useState<string | null>(null);
@@ -54,22 +47,8 @@ export default function HomeRoute() {
 
   return (
     <main
-      className="relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden bg-background p-8"
+      className="ll-home relative flex min-h-screen flex-col items-center justify-center gap-8 overflow-hidden bg-background p-8"
     >
-      {/* Background watermark — the banner fills the viewport at low opacity
-          so the modes/buttons sit on top of the logo without competing. */}
-      <div
-        aria-hidden
-        className="ll-watermark pointer-events-none absolute inset-0 -z-10 flex items-center justify-center"
-      >
-        <img
-          src={bannerUrl}
-          alt=""
-          className="h-auto w-full max-w-5xl object-contain opacity-20 dark:opacity-15"
-          style={{ aspectRatio: "3172 / 1344" }}
-        />
-      </div>
-
       <header className="flex w-full max-w-4xl flex-col items-center gap-3">
         <img
           src={bannerUrl}
@@ -80,6 +59,13 @@ export default function HomeRoute() {
         <p className="text-base text-muted-foreground">
           Unified desktop shell for zsum, AKMS, and research workflows.
         </p>
+        <p className="text-xs text-muted-foreground">
+          Press <kbd className="rounded border border-border px-1 font-mono">Ctrl</kbd>+
+          <kbd className="rounded border border-border px-1 font-mono">K</kbd> (
+          <kbd className="rounded border border-border px-1 font-mono">⌘</kbd>
+          <kbd className="rounded border border-border px-1 font-mono">K</kbd> on macOS) to search the
+          workspace.
+        </p>
       </header>
 
       <section className="grid w-full max-w-3xl gap-4 sm:grid-cols-3">
@@ -89,7 +75,17 @@ export default function HomeRoute() {
             to={m.to}
             className="flex flex-col gap-2 rounded-lg border border-border bg-background/80 p-5 shadow-sm backdrop-blur transition hover:border-foreground/40 hover:bg-muted/70 hover:shadow-md"
           >
-            <div className="text-lg font-semibold">{m.label}</div>
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-lg font-semibold">{m.label}</span>
+              {m.optional && (
+                <span
+                  className="rounded border border-border px-1.5 text-[10px] uppercase tracking-wide text-muted-foreground"
+                  title="Needs an optional install or config; the mode explains what to set up."
+                >
+                  optional
+                </span>
+              )}
+            </div>
             <div className="text-xs text-muted-foreground">{m.description}</div>
           </Link>
         ))}
@@ -123,6 +119,7 @@ export default function HomeRoute() {
       </footer>
 
       <ModelsDialog open={modelsOpen} onClose={() => setModelsOpen(false)} />
+      <GlobalSearch />
     </main>
   );
 }
