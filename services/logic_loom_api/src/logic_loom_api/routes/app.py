@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import os
 import re
 import shutil
 import sys
@@ -168,12 +169,23 @@ def _probe_roots(settings: Settings) -> list[Path]:
     return roots
 
 
-def _is_under(path: Path, root: Path) -> bool:
-    try:
-        r = root.expanduser().resolve()
-    except (OSError, ValueError):
-        return False
-    return path == r or r in path.parents
+def _real(path: str | Path) -> str:
+    return os.path.realpath(os.path.expanduser(str(path)))
+
+
+def _probe_root_for(real: str, settings: Settings) -> str | None:
+    """The allowed folder that contains ``real``, or ``None``.
+
+    ``real`` must already be a ``realpath``. A ``.yaml`` / ``.yml`` file may
+    also sit anywhere under the home folder.
+    """
+    candidates = [_real(r) for r in _probe_roots(settings)]
+    if os.path.splitext(real)[1].lower() in PROBE_CONFIG_SUFFIXES:
+        candidates.append(_real(Path.home()))
+    for root in candidates:
+        if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
+            return root
+    return None
 
 
 @router.get("/path-exists")
@@ -187,24 +199,25 @@ def path_exists(path: str, settings: Settings = Depends(get_settings)) -> dict[s
     """
     if "\x00" in path:
         raise InvalidIdentifier("invalid path: contains a NUL byte")
-    p = Path(path).expanduser()
     try:
-        resolved = p.resolve()
+        real = _real(path)
     except (OSError, ValueError) as exc:
         raise InvalidIdentifier(f"invalid path: {exc}") from exc
-    allowed = any(_is_under(resolved, root) for root in _probe_roots(settings)) or (
-        resolved.suffix.lower() in PROBE_CONFIG_SUFFIXES and _is_under(resolved, Path.home())
-    )
-    if not allowed:
+    root = _probe_root_for(real, settings)
+    # The containment check is spelled out here, on the normalized path itself,
+    # so the filesystem calls below only ever see a path inside ``root``.
+    if root is None or not real.startswith(root):
         raise InvalidIdentifier(
             "path is outside the configured folders; path-exists only answers for "
             "those and for .yaml config files under your home folder"
         )
+    if real != root and not real.startswith(root.rstrip(os.sep) + os.sep):
+        raise InvalidIdentifier("path is outside the configured folders")
     return {
-        "path": str(p),
-        "exists": p.exists(),
-        "is_file": p.is_file(),
-        "is_dir": p.is_dir(),
+        "path": os.path.expanduser(path),
+        "exists": os.path.exists(real),
+        "is_file": os.path.isfile(real),
+        "is_dir": os.path.isdir(real),
     }
 
 
