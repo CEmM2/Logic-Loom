@@ -60,7 +60,9 @@ describe("zsum Collections empty state", () => {
     expect(await screen.findByText(/No zsum library yet/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open Pipeline" }).getAttribute("href")).toBe("/zsum/pipeline");
     expect(screen.getByRole("link", { name: "Check zsum settings" })).toBeTruthy();
-    expect(screen.getByText(/index.json not found/)).toBeTruthy();
+    // Friendlier than the raw "index.json not found" message (v0.3.3 retest).
+    expect(screen.queryByText(/index.json not found/)).toBeNull();
+    expect(screen.getByText("/c")).toBeTruthy();
   });
 
   it("does not render a blank page when the request fails", async () => {

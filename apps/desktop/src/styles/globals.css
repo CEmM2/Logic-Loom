@@ -76,19 +76,20 @@
   }
 
   /* Watermark preference (WatermarkToggle, data-watermark on <html>).
-     "dim" is the default: the full logo competed with tables and text. */
+     "dim" is the default. A centred logo, however faint, still ran under
+     tables and text (v0.3.3 retest), so "dim" shrinks it to a small mark in
+     the bottom-right corner, clear of the content; "full" keeps the large
+     centred logo for those who want it. */
   html[data-watermark="dim"] body::before {
-    opacity: 0.05;
+    background-position: right 24px bottom 24px;
+    background-size: min(22vmin, 220px);
+    opacity: 0.08;
   }
   html.dark[data-watermark="dim"] body::before {
-    opacity: 0.04;
+    opacity: 0.06;
   }
-  html[data-watermark="off"] body::before,
-  html[data-watermark="off"] .ll-watermark {
+  html[data-watermark="off"] body::before {
     display: none;
-  }
-  html[data-watermark="dim"] .ll-watermark {
-    opacity: 0.4;
   }
 
   #root {
