@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Sync upstream zsum prompts into Logic-Loom's bundled prompt-library defaults.
 
-Mirrors the curated `.txt` prompts that ship inside the installed
-`zotero-summarizer` package (`zsum/prompts/<slot>.txt`) into
+Reads the prompt templates that ship inside the installed
+`zotero-summarizer` package through its public API
+(`zsum.resources.iter_builtin_prompts()`, zotero-summarizer >= 1.2) and
+mirrors them into
 `services/logic_loom_api/src/logic_loom_api/resources/prompt_library/defaults/zsum/<slot>/default.{md,logicloom.json}`.
+The script never reads the package's file layout directly.
 
 Two output shapes are supported per the existing bundled-defaults layout:
 
@@ -15,11 +18,12 @@ Two output shapes are supported per the existing bundled-defaults layout:
 
 Invariants:
 
-* **Whitelist over glob.** The slot → upstream-filename map is hard-coded.
-  Adding a new zsum slot requires editing :data:`SLOT_MAP` plus authoring
-  the matching `default.md` (or `default.logicloom.json`).
-* **Loud failure on missing source.** A declared upstream file that does
-  not exist is a SystemExit — never silently produce empty bundles.
+* **Whitelist over discovery.** The slot → target-filename map is
+  hard-coded. zsum ships more templates than Logic-Loom bundles; adding a
+  slot requires editing :data:`SLOT_MAP` plus authoring the matching
+  `default.md` (or `default.logicloom.json`).
+* **Loud failure on missing source.** A declared slot that the installed
+  zsum does not ship is a SystemExit — never silently produce empty bundles.
 * **Loud failure on missing target.** The target directory must already
   exist (the slot must be a known canonical slot with a bundled default
   pre-staged). This prevents typos from creating ghost slots.
@@ -32,33 +36,17 @@ Usage:
 
 Exit codes:
     0  — all declared slots synced (some may have been no-ops).
-    1  — SystemExit: missing source, missing target, or unparseable wrapper.
+    1  — SystemExit: zsum missing or too old, missing source, missing
+         target, or unparseable wrapper.
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-
-def _installed_zsum_prompts() -> Path | None:
-    """The `prompts/` directory of the installed `zsum` package, if any.
-
-    Located with `find_spec`, so the package is not imported. zotero-summarizer
-    is a core dependency of logic-loom-api, so any synced environment has it.
-    """
-    try:
-        spec = importlib.util.find_spec("zsum")
-    except (ImportError, ValueError):
-        spec = None
-    locations = list(spec.submodule_search_locations or []) if spec else []
-    return Path(locations[0]) / "prompts" if locations else None
-
-
-UPSTREAM_PROMPTS = _installed_zsum_prompts()
 BUNDLED_ROOT = (
     ROOT
     / "services"
@@ -71,20 +59,17 @@ BUNDLED_ROOT = (
     / "zsum"
 )
 
-# slot_stem → (upstream-filename, target-filename relative to <bundled>/<slot_stem>/)
+# zsum slot → target filename relative to <bundled>/<slot>/
 # Adding a slot:
-#   1) Author a default at BUNDLED_ROOT/<stem>/default.{md,logicloom.json}.
+#   1) Author a default at BUNDLED_ROOT/<slot>/default.{md,logicloom.json}.
 #   2) Append the entry here.
 #   3) Ensure the slot id is registered in services/.../prompts/models.py:PromptSlot.
-SLOT_MAP: dict[str, tuple[str, str]] = {
-    "paper_card": ("paper_card.txt", "default.logicloom.json"),
-    "collection_digest": ("collection_digest.txt", "default.md"),
-    "collection_digest_structured": (
-        "collection_digest_structured.txt",
-        "default.md",
-    ),
-    "collection_redigest": ("collection_redigest.txt", "default.md"),
-    "restructure": ("restructure.txt", "default.md"),
+SLOT_MAP: dict[str, str] = {
+    "paper_card": "default.logicloom.json",
+    "collection_digest": "default.md",
+    "collection_digest_structured": "default.md",
+    "collection_redigest": "default.md",
+    "restructure": "default.md",
 }
 
 
@@ -133,27 +118,39 @@ def _sync_markdown(target: Path, upstream_text: str) -> bool:
     return True
 
 
-def main() -> int:
-    if UPSTREAM_PROMPTS is None or not UPSTREAM_PROMPTS.is_dir():
+def _builtin_prompts() -> tuple[dict[str, str], str]:
+    """Return ``({slot: content}, zsum_version)`` from the installed package."""
+    try:
+        from zsum.resources import iter_builtin_prompts
+    except ImportError:
         _die(
-            "the installed zotero-summarizer package has no prompts directory "
-            f"({UPSTREAM_PROMPTS}). Run `uv sync` first; zotero-summarizer is a "
-            "core dependency of logic-loom-api."
+            "zsum.resources is not available. Logic-Loom needs "
+            "zotero-summarizer >= 1.2 (a core dependency of logic-loom-api); "
+            "run `uv sync` first."
         )
+    prompts = list(iter_builtin_prompts())
+    version = prompts[0].package_version if prompts else "unknown"
+    return {p.slot: p.content for p in prompts}, version
+
+
+def main() -> int:
+    upstream, zsum_version = _builtin_prompts()
     if not BUNDLED_ROOT.is_dir():
         _die(f"bundled defaults root missing: {BUNDLED_ROOT}")
 
     changed = 0
     noop = 0
 
-    for stem, (upstream_name, target_name) in SLOT_MAP.items():
-        src = UPSTREAM_PROMPTS / upstream_name
-        if not src.is_file():
-            _die(f"upstream prompt missing for slot {stem!r}: {src}")
-        slot_dir = BUNDLED_ROOT / stem
+    for slot, target_name in SLOT_MAP.items():
+        if slot not in upstream:
+            _die(
+                f"installed zotero-summarizer {zsum_version} ships no prompt "
+                f"for slot {slot!r}"
+            )
+        slot_dir = BUNDLED_ROOT / slot
         if not slot_dir.is_dir():
             _die(
-                f"bundled slot dir missing for slot {stem!r}: {slot_dir}. "
+                f"bundled slot dir missing for slot {slot!r}: {slot_dir}. "
                 f"Create it and author {target_name} before re-running."
             )
         target = slot_dir / target_name
@@ -163,7 +160,7 @@ def main() -> int:
                 "The sync script only updates existing defaults — author one first."
             )
 
-        upstream_text = src.read_text(encoding="utf-8")
+        upstream_text = upstream[slot]
         if target_name.endswith(".logicloom.json"):
             mutated = _sync_logicloom_json(target, upstream_text)
         else:
@@ -171,14 +168,14 @@ def main() -> int:
 
         if mutated:
             changed += 1
-            print(f"[zsum-prompts] updated zsum.{stem} <- zsum/prompts/{upstream_name}")
+            print(f"[zsum-prompts] updated zsum.{slot} <- zsum {zsum_version}")
         else:
             noop += 1
-            print(f"[zsum-prompts] up-to-date zsum.{stem}")
+            print(f"[zsum-prompts] up-to-date zsum.{slot}")
 
     print(
         f"[zsum-prompts] sync complete: {changed} updated, {noop} unchanged, "
-        f"{len(SLOT_MAP)} slots total"
+        f"{len(SLOT_MAP)} slots total (zotero-summarizer {zsum_version})"
     )
     return 0
 
