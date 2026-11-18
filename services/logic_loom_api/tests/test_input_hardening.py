@@ -219,10 +219,109 @@ def test_editor_must_name_an_existing_program(client: TestClient) -> None:
     assert r.status_code == 422
 
 
-def test_editor_accepts_a_real_program_and_clearing(client: TestClient) -> None:
-    r = client.post("/api/app/config", json={"nodes_editor": f'"{sys.executable}" -c pass'})
+def _fake_program(tmp: Path, name: str) -> str:
+    """An executable file called ``name``; validation only checks it exists."""
+    bin_dir = tmp / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    prog = bin_dir / name
+    prog.write_text("#!/bin/sh\nexit 0\n")
+    prog.chmod(0o755)
+    return str(prog)
+
+
+def test_editor_accepts_a_known_editor_and_clearing(client: TestClient, env) -> None:
+    code = _fake_program(env["tmp"], "code")
+    r = client.post("/api/app/config", json={"nodes_editor": f'"{code}" --wait'})
     assert r.status_code == 200, r.text
     assert client.post("/api/app/config", json={"nodes_editor": ""}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "editor",
+    [
+        f'"{sys.executable}" -c pass',  # not an editor
+        "/bin/echo",  # not an editor (QA: ran through /api/nodes/open)
+        "touch /tmp/llpwn #",  # QA: accepted in v0.3.3
+    ],
+)
+def test_editor_rejects_programs_that_are_not_editors(client: TestClient, editor: str) -> None:
+    if editor.startswith("/bin/") and not Path(editor).exists():
+        pytest.skip("no /bin/echo here")
+    r = client.post("/api/app/config", json={"nodes_editor": editor})
+    assert r.status_code == 422, r.text
+
+
+@pytest.mark.parametrize("args", ["-c '!touch /tmp/x'", "--eval '(shell-command \"x\")'", "--wait /etc/passwd"])
+def test_editor_rejects_arguments_that_are_not_plain_flags(client: TestClient, env, args: str) -> None:
+    gvim = _fake_program(env["tmp"], "gvim")
+    r = client.post("/api/app/config", json={"nodes_editor": f'"{gvim}" {args}'})
+    assert r.status_code == 422, r.text
+
+
+def test_open_dash_a_app_is_allowed(client: TestClient, env) -> None:
+    opener = _fake_program(env["tmp"], "open")
+    r = client.post("/api/app/config", json={"nodes_editor": f'"{opener}" -a TextEdit'})
+    assert r.status_code == 200, r.text
+
+
+def test_zsum_command_must_be_python_uv_or_zsum(client: TestClient, env) -> None:
+    ok = client.post("/api/app/config", json={"zsum_python_cmd": f'"{sys.executable}" -m zsum.cli'})
+    assert ok.status_code == 200, ok.text
+    uv = _fake_program(env["tmp"], "uv")
+    assert client.post("/api/app/config", json={"zsum_python_cmd": f'"{uv}" run zsum'}).status_code == 200
+    echo = _fake_program(env["tmp"], "echo")
+    assert client.post("/api/app/config", json={"zsum_python_cmd": echo}).status_code == 422
+    r = client.post("/api/app/config", json={"zsum_python_cmd": f'"{sys.executable}" -c pass'})
+    assert r.status_code == 422
+
+
+def test_config_post_never_echoes_a_key(client: TestClient) -> None:
+    r = client.post("/api/app/config", json={"openai_api_key": "sk-real-secret", "llm_provider": "claude"})
+    assert r.status_code == 200
+    assert "sk-real-secret" not in r.text
+    assert r.json()["applied"]["openai_api_key"] == SECRET_MASK
+    assert r.json()["applied"]["llm_provider"] == "claude"
+
+
+# ── path-exists ─────────────────────────────────────────────────────────────
+
+
+def test_path_exists_answers_inside_configured_folders(client: TestClient, env) -> None:
+    r = client.get("/api/app/path-exists", params={"path": str(env["vault"])})
+    assert r.status_code == 200
+    assert r.json()["is_dir"] is True
+
+
+def test_path_exists_refuses_other_paths(client: TestClient) -> None:
+    r = client.get("/api/app/path-exists", params={"path": "/etc/passwd"})
+    assert r.status_code == 422
+
+
+def test_path_exists_nul_is_422(client: TestClient) -> None:
+    r = client.get("/api/app/path-exists", params={"path": "a\x00b"})
+    assert r.status_code == 422
+
+
+def test_path_exists_allows_yaml_under_home(client: TestClient, env, monkeypatch) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: env["tmp"]))
+    r = client.get("/api/app/path-exists", params={"path": str(env["tmp"] / "x" / "zsum.config.yaml")})
+    assert r.status_code == 200
+    assert r.json()["exists"] is False
+
+
+# ── prompt variants ─────────────────────────────────────────────────────────
+
+
+def test_variant_with_unsafe_filename_is_rejected(client: TestClient, env) -> None:
+    body = {
+        "slot": "zsum.paper_card",
+        "name": "evil",
+        "filename": "../../../../tmp/x.md",
+        "content": "hello",
+    }
+    r = client.post("/api/prompts/variant", json=body)
+    assert r.status_code == 400
+    assert "unsafe filename" in r.text
 
 
 # ── error envelope ──────────────────────────────────────────────────────────

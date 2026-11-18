@@ -198,6 +198,18 @@ class TestGraphRefresh:
         assert unignore_body["issue_count"] == 1
         assert unignore_body["ignored_issue_count"] == 0
 
+    def test_issue_scan_body_ignores_paths(self, client: TestClient) -> None:
+        issue_path = client.post("/api/graph/issues/scan").json()["issues"][0]["path"]
+        r = client.post("/api/graph/issues/scan", json={"ignore": [issue_path]})
+        assert r.status_code == 200
+        body = r.json()
+        assert body["issue_count"] == 0
+        assert body["ignored_issue_count"] == 1
+
+    def test_issue_scan_rejects_unknown_body_fields(self, client: TestClient) -> None:
+        r = client.post("/api/graph/issues/scan", json={"ignored": ["x"]})
+        assert r.status_code == 422
+
     def test_refresh_requires_review_when_scan_has_issues(self, client: TestClient) -> None:
         r = client.post("/api/graph/refresh")
         assert r.status_code == 409
