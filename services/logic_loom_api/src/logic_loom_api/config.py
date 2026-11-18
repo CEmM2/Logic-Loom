@@ -378,7 +378,11 @@ class Settings(BaseSettings):
     )
     nodes_editor: str | None = Field(
         default=None,
-        description="Editor command for opening nodes (e.g. 'code'). None = system default (macOS: open).",
+        description=(
+            "Editor command for opening nodes (e.g. 'code'). None = system default (macOS: open). "
+            "The Settings page accepts known editors with plain flags only; set any other "
+            "program here in config.toml."
+        ),
     )
 
     # Networking
@@ -831,7 +835,10 @@ def first_run_status(settings: Settings) -> dict[str, Any]:
         "missing_or_placeholder": needs,
         "configured": {
             "akms_repo": _opt_str(settings.akms_repo),
-            "akms_global_vault": _opt_str(settings.akms_global_vault),
+            # The explicit setting, else the AKMS_GLOBAL_VAULT env var the
+            # graph also honours (see effective_akms_global_vault).
+            "akms_global_vault": _opt_str(settings.akms_global_vault)
+            or (os.environ.get("AKMS_GLOBAL_VAULT") or None),
             "zsum_repo": _opt_str(settings.zsum_repo),
             "vault_path": _opt_str(settings.vault_path),
         },

@@ -34,6 +34,7 @@ from pydantic import BaseModel, ConfigDict, Field
 logger = logging.getLogger(__name__)
 
 from ..config import Settings
+from .providers import retry as _retry
 from .providers.errors import ProviderError, ProviderRateLimited
 from .providers.openalex import OpenAlexClient, ProviderSearchFilters
 from .providers.semantic_scholar import SemanticScholarClient
@@ -373,8 +374,8 @@ def merge_results(*provider_lists: list[DiscoveredPaper]) -> list[DiscoveredPape
 #: Providers ``search`` can query, in merge order.
 SEARCH_PROVIDERS: tuple[str, ...] = ("openalex", "semantic_scholar")
 
-#: Longest wait before the single retry after a provider rate limit.
-RATE_LIMIT_RETRY_CAP_SECONDS = 5
+#: Longest single wait between rate-limit retries (see providers.retry).
+RATE_LIMIT_RETRY_CAP_SECONDS = _retry.RATE_LIMIT_RETRY_CAP_SECONDS
 
 
 def _provider_error_entry(provider: str, exc: BaseException) -> dict[str, Any]:
@@ -454,9 +455,10 @@ class PaperDiscoveryService:
     ) -> tuple[list[DiscoveredPaper], list[dict[str, Any]]]:
         """Search the chosen providers; return merged papers and per-provider errors.
 
-        Each provider gets one retry after a rate limit, waiting its
-        ``Retry-After`` (capped at :data:`RATE_LIMIT_RETRY_CAP_SECONDS`, 1s when
-        absent). A provider that still fails is reported in the error list
+        A rate-limited provider is retried with exponential backoff and jitter
+        (:func:`providers.retry.call_with_backoff`: up to three retries,
+        honouring ``Retry-After``, each wait capped at
+        :data:`RATE_LIMIT_RETRY_CAP_SECONDS`). A provider that still fails is reported in the error list
         (``provider``, ``error``, ``message``, ``retry_after``) instead of only
         being logged. When every chosen provider fails, the first error is
         raised so the route can map it to an HTTP status.
@@ -472,13 +474,7 @@ class PaperDiscoveryService:
         chosen = [p for p in SEARCH_PROVIDERS if p in providers]
 
         async def run(name: str) -> Any:
-            try:
-                return await calls[name]()
-            except ProviderRateLimited as exc:
-                wait = min(exc.retry_after or 1, RATE_LIMIT_RETRY_CAP_SECONDS)
-                logger.info("%s rate limited; retrying once in %ss", name, wait)
-                await asyncio.sleep(wait)
-                return await calls[name]()
+            return await _retry.call_with_backoff(calls[name], label=name)
 
         results = await asyncio.gather(*(run(n) for n in chosen), return_exceptions=True)
 

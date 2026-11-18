@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+import re
 import shutil
+import sys
 import time
 from pathlib import Path
 from typing import Any, Literal
@@ -25,7 +27,7 @@ from ..config import (
     is_placeholder,
 )
 from ..deps import get_settings, reload_settings
-from ..safe_paths import split_command
+from ..safe_paths import InvalidIdentifier, split_command
 
 router = APIRouter()
 
@@ -138,10 +140,66 @@ def config_get(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
     }
 
 
+#: File suffixes ``path-exists`` answers for anywhere under the home folder.
+#: The zsum Settings page probes its "Config path" box (a zsum.config.yaml)
+#: while the user types, before the path is saved, so it cannot be limited to
+#: the configured folders alone.
+PROBE_CONFIG_SUFFIXES: frozenset[str] = frozenset({".yaml", ".yml"})
+
+
+def _probe_roots(settings: Settings) -> list[Path]:
+    """Folders ``path-exists`` may answer for: the ones the user configured."""
+    roots: list[Path] = [*settings.nodes_folders, settings.akms_workspace, settings.cache_path]
+    if settings.vault_path:
+        roots.append(settings.vault_path)
+    for resolver in (
+        settings.effective_akms_global_vault,
+        settings.assistant_workspace_path,
+        settings.zsum_repo_dir,
+        lambda: settings.effective_zsum_config_path().parent,
+        lambda: _user_config_path().parent,
+    ):
+        try:
+            root = resolver()
+        except Exception:  # a broken setting must not break the probe
+            continue
+        if root is not None:
+            roots.append(root)
+    return roots
+
+
+def _is_under(path: Path, root: Path) -> bool:
+    try:
+        r = root.expanduser().resolve()
+    except (OSError, ValueError):
+        return False
+    return path == r or r in path.parents
+
+
 @router.get("/path-exists")
-def path_exists(path: str) -> dict[str, Any]:
-    """Cheap fs probe used by the Settings page (config-path warning)."""
+def path_exists(path: str, settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    """Cheap fs probe used by the Settings page (config-path warning).
+
+    It only answers for paths inside the configured folders (vault, node
+    folders, workspaces, cache, config folders) and for ``.yaml`` / ``.yml``
+    files under the home folder. Anything else is a 422, so the endpoint cannot
+    be used to map the filesystem.
+    """
+    if "\x00" in path:
+        raise InvalidIdentifier("invalid path: contains a NUL byte")
     p = Path(path).expanduser()
+    try:
+        resolved = p.resolve()
+    except (OSError, ValueError) as exc:
+        raise InvalidIdentifier(f"invalid path: {exc}") from exc
+    allowed = any(_is_under(resolved, root) for root in _probe_roots(settings)) or (
+        resolved.suffix.lower() in PROBE_CONFIG_SUFFIXES and _is_under(resolved, Path.home())
+    )
+    if not allowed:
+        raise InvalidIdentifier(
+            "path is outside the configured folders; path-exists only answers for "
+            "those and for .yaml config files under your home folder"
+        )
     return {
         "path": str(p),
         "exists": p.exists(),
@@ -273,6 +331,102 @@ class ConfigUpdate(BaseModel):
         if shutil.which(program) is None and not Path(program).expanduser().is_file():
             raise ValueError(f"program not found: {program!r}")
         return v
+
+    @field_validator("nodes_editor")
+    @classmethod
+    def _editor_must_be_known(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return v
+        check_editor_command(_split_command(v))
+        return v
+
+    @field_validator("zsum_python_cmd")
+    @classmethod
+    def _zsum_cmd_must_be_python(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return v
+        check_zsum_command(_split_command(v))
+        return v
+
+
+# ── Commands settable over HTTP ─────────────────────────────────────────────
+# nodes_editor and zsum_python_cmd are run as programs, so anyone holding the
+# API token could otherwise turn POST /config into "run this program". Over
+# HTTP they are limited to known editors / Python launchers with plain flags.
+# Someone who needs another program sets it in config.toml by hand, which the
+# sidecar trusts (the file is the user's own).
+
+#: Editor programs the Settings form may set (compared by base name, lower
+#: case, without ``.exe`` / ``.app``).
+KNOWN_EDITORS: frozenset[str] = frozenset(
+    {
+        # system openers
+        "open", "xdg-open", "gio",
+        # GUI editors and IDEs
+        "code", "code-insiders", "codium", "vscodium", "cursor", "windsurf", "zed",
+        "subl", "sublime_text", "mate", "bbedit", "textedit", "gedit",
+        "gnome-text-editor", "kate", "kwrite", "mousepad", "pluma", "xed", "geany",
+        "featherpad", "notepad", "notepad++", "gvim", "mvim", "emacsclient",
+        "typora", "obsidian", "marktext", "ghostwriter", "idea", "pycharm",
+        "webstorm", "charm", "fleet", "lapce", "nova",
+    }
+)
+
+#: Flags that make an editor run commands (vim -c, emacs --eval, ...).
+_EXEC_FLAGS: frozenset[str] = frozenset(
+    {"-c", "--cmd", "-s", "-u", "-x", "--eval", "--exec", "--execute", "--command",
+     "-l", "--load", "-f", "--funcall", "--remote-send", "--remote-expr"}
+)
+
+#: ``open -a <App>`` / ``open -b <bundle id>`` take one value.
+_OPEN_VALUE_FLAGS: frozenset[str] = frozenset({"-a", "-b"})
+
+_PLAIN_FLAG = re.compile(r"^--?[A-Za-z][A-Za-z0-9-]*$")
+_PYTHON_NAME = re.compile(r"^python(3(\.\d+)?)?$")
+
+
+def _program_name(program: str) -> str:
+    name = Path(program).name.lower()
+    for suffix in (".exe", ".app", ".cmd", ".bat"):
+        name = name.removesuffix(suffix)
+    return name
+
+
+def check_editor_command(argv: list[str]) -> None:
+    """Raise ``ValueError`` unless ``argv`` is a known editor with plain flags."""
+    name = _program_name(argv[0])
+    if name not in KNOWN_EDITORS:
+        raise ValueError(
+            f"{argv[0]!r} is not a known editor. Pick one such as code, cursor, zed, "
+            "subl, gedit, kate or open, or set nodes_editor in config.toml yourself."
+        )
+    args = argv[1:]
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if name == "open" and arg in _OPEN_VALUE_FLAGS and i + 1 < len(args):
+            i += 2
+            continue
+        if not _PLAIN_FLAG.match(arg) or (arg.lower() in _EXEC_FLAGS and name != "open"):
+            raise ValueError(
+                f"editor argument {arg!r} is not allowed here; only plain flags such as "
+                "--wait or -n. Set nodes_editor in config.toml to use other arguments."
+            )
+        i += 1
+
+
+def check_zsum_command(argv: list[str]) -> None:
+    """Raise ``ValueError`` unless ``argv`` runs zsum through Python, uv or zsum."""
+    if any(a == "-c" or (a.startswith("-c") and not a.startswith("--")) for a in argv[1:]):
+        raise ValueError("zsum command must not use -c; run a module or script instead")
+    if argv[0] == sys.executable:  # the default: the sidecar's own runtime
+        return
+    name = _program_name(argv[0])
+    if not (_PYTHON_NAME.match(name) or name in {"uv", "zsum"}):
+        raise ValueError(
+            f"{argv[0]!r} is not a Python, uv or zsum command. "
+            "Set zsum_python_cmd in config.toml yourself to use another program."
+        )
 
 
 # learn_llm_custom_clis is deliberately not validated here: a custom CLI may be
@@ -443,4 +597,7 @@ def config_post(payload: ConfigUpdate) -> dict[str, Any]:
         tomli_w.dump(merged, f)
     tmp.replace(target)
     reload_settings()
-    return {"status": "saved", "path": str(target), "applied": delta, "cleared": cleared}
+    # Report what changed, but never echo a key back: a saved key comes back
+    # as the same mask GET /config uses.
+    applied = {k: (SECRET_MASK if k in SECRET_FIELDS else v) for k, v in delta.items()}
+    return {"status": "saved", "path": str(target), "applied": applied, "cleared": cleared}

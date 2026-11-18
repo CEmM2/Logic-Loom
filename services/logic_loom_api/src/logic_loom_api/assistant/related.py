@@ -71,6 +71,7 @@ from .providers.openalex import (
     _is_placeholder,
     _parse_retry_after,
 )
+from .providers.retry import call_with_backoff
 from .providers.semantic_scholar import (
     DEFAULT_S2_FIELDS,
     SEMANTIC_SCHOLAR_BASE_URL,
@@ -782,6 +783,31 @@ class RelatedPaperService:
         )
 
     async def _request_json(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, str],
+        headers: dict[str, str],
+        body: dict[str, Any] | None,
+        client: httpx.AsyncClient | None,
+        provider: str,
+    ) -> dict[str, Any]:
+        """One provider request, retried with backoff on HTTP 429."""
+        return await call_with_backoff(
+            lambda: self._request_json_once(
+                method,
+                url,
+                params=params,
+                headers=headers,
+                body=body,
+                client=client,
+                provider=provider,
+            ),
+            label=provider,
+        )
+
+    async def _request_json_once(
         self,
         method: str,
         url: str,

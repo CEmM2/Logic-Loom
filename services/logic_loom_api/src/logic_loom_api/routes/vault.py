@@ -70,6 +70,18 @@ def _safe_subpath(vault_root: Path, rel: str) -> Path:
     return candidate
 
 
+def _reject_hidden(vault_root: Path, rel: str, target: Path) -> None:
+    """404 for anything the tree hides (.github, .obsidian, ...), so a file that
+    is not listed cannot be read by guessing its path either."""
+    parts = list(Path(rel).parts)
+    try:
+        parts += list(target.relative_to(vault_root.resolve()).parts)
+    except ValueError:
+        pass
+    if any(_is_hidden(part) for part in parts if part not in (".", "..")):
+        raise HTTPException(status_code=404, detail=f"Not found: {rel}")
+
+
 def _walk_tree(directory: Path, vault_root: Path, depth: int) -> list[TreeNode]:
     if depth <= 0 or not directory.is_dir():
         return []
@@ -93,6 +105,8 @@ def get_tree(
     vault_root: Path = Depends(get_vault_root),
 ) -> list[TreeNode]:
     target = vault_root if not root else _safe_subpath(vault_root, root)
+    if root:
+        _reject_hidden(vault_root, root, target)
     if not target.is_dir():
         raise HTTPException(status_code=404, detail=f"Not a directory: {root}")
     return _walk_tree(target, vault_root, depth)
@@ -104,6 +118,7 @@ def get_file(
     vault_root: Path = Depends(get_vault_root),
 ) -> FileResponse:
     target = _safe_subpath(vault_root, path)
+    _reject_hidden(vault_root, path, target)
     if not target.is_file():
         raise HTTPException(status_code=404, detail=f"Not a file: {path}")
     stat = target.stat()
@@ -150,7 +165,7 @@ def resolve(
     # Fallback: recursive search by candidate filename anywhere under root.
     for cand in candidates:
         for hit in vault_root.rglob(f"{cand}.md"):
-            if any(part in EXCLUDED_DIR_NAMES for part in hit.relative_to(vault_root).parts):
+            if any(_is_hidden(part) for part in hit.relative_to(vault_root).parts):
                 continue
             return ResolveResponse(path=hit.relative_to(vault_root).as_posix(), exists=True)
 

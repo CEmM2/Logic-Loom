@@ -9,7 +9,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sse_starlette.sse import EventSourceResponse
 
 from ..adapters.graph_adapter import (
@@ -26,6 +26,7 @@ from ..adapters.graph_adapter import (
     read_graph_status,
     scan_graph_sources,
     set_graph_issue_ignored,
+    set_graph_issues_ignored,
     slice_to_payload,
 )
 from ..config import Settings
@@ -140,6 +141,18 @@ class GraphRefreshRequest(BaseModel):
     skip_invalid_files: bool = False
 
 
+class GraphIssueScanRequest(BaseModel):
+    """Optional body for ``POST /issues/scan``. Unknown fields are a 422."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    ignore: list[str] = Field(
+        default_factory=list,
+        max_length=1000,
+        description="Issue paths to mark as ignored before the scan runs.",
+    )
+
+
 class GraphIssueIgnoreRequest(BaseModel):
     path: str
     ignored: bool = True
@@ -179,9 +192,15 @@ def graph_issue_log(settings: Settings = Depends(get_settings)) -> GraphIssueLog
 
 
 @router.post("/issues/scan", response_model=GraphIssueLog)
-def graph_issue_scan(settings: Settings = Depends(get_settings)) -> GraphIssueLog:
+def graph_issue_scan(
+    payload: GraphIssueScanRequest | None = None,
+    settings: Settings = Depends(get_settings),
+) -> GraphIssueLog:
     try:
-        report = scan_graph_sources(settings)
+        if payload and payload.ignore:
+            report = set_graph_issues_ignored(settings, payload.ignore, ignored=True)
+        else:
+            report = scan_graph_sources(settings)
     except GraphAdapterError as e:
         raise http_error(412, "precondition_failed", str(e))
     return GraphIssueLog(**report.to_payload())
