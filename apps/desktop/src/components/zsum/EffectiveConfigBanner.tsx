@@ -108,7 +108,7 @@ export function EffectiveConfigBanner() {
           )}
           {!e.index_exists && e.config_exists && (
             <Hint tone="warn">
-              No index.json yet at the resolved cache_dir. Run "Skeleton" or "Full Run".
+              No zsum library yet in the cache folder. Run "Skeleton" or "Full Run" to create it.
             </Hint>
           )}
           {e.vault_mismatch && e.vault_output_resolved && (

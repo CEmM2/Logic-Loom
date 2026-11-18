@@ -35,7 +35,7 @@ Assistant workspace.
 
 ## Workspace search
 
-Press **⌘K** (macOS) or **Ctrl-K** (Windows, Linux) on any Assistant page. One search box
+Press **⌘K** (macOS) or **Ctrl-K** (Windows, Linux) on any page, Home included. One search box
 covers:
 
 - Zotero sources in your batches

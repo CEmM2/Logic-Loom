@@ -29,7 +29,8 @@ Release builds include every extra. When a mode's requirements are missing, its 
 show a setup message instead of failing.
 
 The top bar also holds the theme switch (system, light, dark) and a **Logo** switch
-for the backdrop logo behind every page: dimmed (the default), hidden, or full.
+for the backdrop logo: a small mark in the bottom-right corner (the default), hidden,
+or full size behind the page.
 
 ## Where to start
 
