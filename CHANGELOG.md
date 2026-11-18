@@ -5,6 +5,20 @@
 > [documentation site](https://cemm2.github.io/Logic-Loom/); the entries below
 > summarise them.
 
+## v0.3.4
+
+Fixes from the v0.3.3 retest. Full notes:
+[`docs/release_notes/v0.3.4.md`](./docs/release_notes/v0.3.4.md).
+
+- **Local API:** `path-exists` answers only inside your configured folders;
+  the editor and zsum command settings accept only known programs when set
+  from the app; saved API keys are never echoed back; prompt variant filenames
+  are checked; hidden vault files return 404.
+- **Fixed:** Ctrl-K on Home, a card for every mode on Home, a small corner
+  logo by default, a clearer zsum Collections empty state, real backoff on
+  provider rate limits, `AKMS_GLOBAL_VAULT` in first-run setup.
+- **Releases:** `SHA256SUMS.txt` no longer lists itself.
+
 ## v0.3.3
 
 The rest of the v0.3.1 QA pass. Full notes:

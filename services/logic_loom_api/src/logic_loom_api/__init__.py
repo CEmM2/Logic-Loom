@@ -1,3 +1,3 @@
 """logic_loom_api — FastAPI façade for the LogicLoom desktop app."""
 
-__version__ = "0.3.3"
+__version__ = "0.3.4"
