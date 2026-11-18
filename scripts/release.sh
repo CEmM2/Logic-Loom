@@ -8,26 +8,24 @@ set -euo pipefail
 #     `release.yml` cuts a SOURCE-ONLY GitHub Release (`.tar.gz` + `.zip` +
 #     SHA256SUMS.txt). No binaries.
 #   * CEmM2/Logic-Loom-releases (public) — on the same `v*` tag pushed there,
-#     its `build-binaries.yml` checks out the private source at the tag (via the
-#     SOURCE_REPO_PAT secret), builds macOS/Linux/Windows bundles, and attaches
+#     its `build-binaries.yml` checks out this public source repository at the
+#     tag (no token needed), builds macOS/Linux/Windows bundles, and attaches
 #     them to that tag's Release.
 #
 # So a release is just "push the tag to both repos". This script does exactly
 # that, in order, idempotently, with a dry-run mode.
 #
-#   bash scripts/release.sh --tag v0.1.0-alpha.6
-#   bash scripts/release.sh --tag v0.1.0-alpha.6 --source-ref origin/master
-#   bash scripts/release.sh --tag v0.1.0-alpha.6 --replace
-#   bash scripts/release.sh --tag v0.1.0-alpha.6 --watch
-#   bash scripts/release.sh --tag v0.1.0-alpha.6 --dry-run
+#   bash scripts/release.sh --tag v0.3.4
+#   bash scripts/release.sh --tag v0.3.4 --source-ref origin/main
+#   bash scripts/release.sh --tag v0.3.4 --replace
+#   bash scripts/release.sh --tag v0.3.4 --watch
+#   bash scripts/release.sh --tag v0.3.4 --dry-run
 #
 # Prereqs:
 #   * `git` + `gh` (authenticated for both repos) on PATH.
 #   * The public release repo cloned locally
 #     (default: $HOME/Github/Group/Logic-Loom-releases).
 #   * docs/release_notes/<tag>.md present (both workflows use it as the body).
-#   * The CEmM2 repo has the SOURCE_REPO_PAT secret configured (read Contents on
-#     the source repo) — required by build-binaries.yml.
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -40,7 +38,7 @@ RELEASE_REPO="${LOGIC_LOOM_RELEASE_REPO:-$DEFAULT_RELEASE_REPO}"
 TAG_RAW=""
 SOURCE_REPO=""
 TARGET_REPO=""
-SOURCE_REF="origin/master"   # where to create the source tag if it doesn't exist
+SOURCE_REF="origin/main"     # where to create the source tag if it doesn't exist
 MIRROR_BRANCH="main"         # branch the mirror tag is created from
 PUSH_SOURCE=1
 PUSH_MIRROR=1
@@ -103,17 +101,17 @@ Options:
   -h, --help                 Show this help.
 
 Examples:
-  # Cut v0.1.0-alpha.6 — tag master, push to both repos.
-  bash scripts/release.sh --tag v0.1.0-alpha.6
+  # Cut v0.3.4 — tag main, push to both repos.
+  bash scripts/release.sh --tag v0.3.4
 
   # Re-cut an existing tag (delete releases+tags on both repos, recreate).
-  bash scripts/release.sh --tag v0.1.0-alpha.6 --replace
+  bash scripts/release.sh --tag v0.3.4 --replace
 
   # Only (re)trigger the binary build on the public repo.
-  bash scripts/release.sh --tag v0.1.0-alpha.6 --push-source no
+  bash scripts/release.sh --tag v0.3.4 --push-source no
 
   # Dry-run.
-  bash scripts/release.sh --tag v0.1.0-alpha.6 --dry-run
+  bash scripts/release.sh --tag v0.3.4 --dry-run
 EOF
 }
 
@@ -296,4 +294,3 @@ fi
 log "done"
 [[ "$PUSH_SOURCE" -eq 1 ]] && log "source release: https://github.com/$SOURCE_REPO/releases/tag/$RELEASE_TAG"
 [[ "$PUSH_MIRROR" -eq 1 ]] && log "binary release: https://github.com/$TARGET_REPO/releases/tag/$RELEASE_TAG"
-[[ "$PUSH_MIRROR" -eq 1 ]] && log "note: the binary build needs the SOURCE_REPO_PAT secret on $TARGET_REPO"
