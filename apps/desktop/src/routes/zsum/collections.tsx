@@ -84,7 +84,7 @@ export default function CollectionsRoute() {
         <h1 className="text-2xl font-semibold">Collections</h1>
         <p className="max-w-prose text-sm text-muted-foreground">
           {missing
-            ? "No zsum library yet. Collections appear here after the zsum pipeline has run once and written its index."
+            ? "No zsum library yet. Collections appear here once the zsum pipeline has run: open Pipeline and run Skeleton (fast, no LLM) or Full Run."
             : "The zsum library index could not be read."}
         </p>
         <div className="flex flex-wrap gap-2">
@@ -101,8 +101,14 @@ export default function CollectionsRoute() {
             Check zsum settings
           </Link>
         </div>
-        {detail && (
-          <p className="break-all font-mono text-xs text-muted-foreground">{detail}</p>
+        {missing && indexResp?.kind === "missing" && indexResp.cache_dir ? (
+          <p className="text-xs text-muted-foreground">
+            Logic-Loom looks for the library in{" "}
+            <span className="break-all font-mono">{indexResp.cache_dir}</span>, the zsum cache
+            folder.
+          </p>
+        ) : (
+          detail && <p className="break-all font-mono text-xs text-muted-foreground">{detail}</p>
         )}
       </main>
     );

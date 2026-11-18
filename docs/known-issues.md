@@ -10,6 +10,13 @@ release's notes on the [Releases page](https://github.com/CEmM2/Logic-Loom-relea
 - **Windows SmartScreen:** unsigned builds show a trust warning until code signing is in
   place.
 
+## Checksums
+
+- **`SHA256SUMS.txt` up to v0.3.3 lists itself.** `sha256sum -c` then reports
+  `SHA256SUMS.txt: FAILED` and exits 1 even when every installer is fine. Check that the
+  installer you downloaded says `OK`; the line for the manifest itself can be ignored.
+  Later releases leave it out.
+
 ## Linux
 
 - **glibc 2.35 or newer** (Ubuntu 22.04, Debian 12 or later) is required by the Linux
