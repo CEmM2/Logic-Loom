@@ -11,7 +11,7 @@ its routes in `/openapi.json` under the `akms-picker` tag; they are not listed
 here. See the
 [AKMS batch picker HTTP API](https://cemm2.github.io/AKMS/reference/nodes-gen/batch-picker/api-reference.html).
 
-Generated from API version `0.3.3`.
+Generated from API version `0.3.4`.
 
 ## `/api/akms`
 
