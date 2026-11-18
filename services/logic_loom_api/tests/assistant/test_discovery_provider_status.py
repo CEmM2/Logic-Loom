@@ -1,4 +1,4 @@
-"""QA batch 6: Discover search validation and per-provider failure reporting."""
+"""Discover search validation, per-provider failure reporting and 429 backoff."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 from logic_loom_api.assistant import discovery as discovery_mod
 from logic_loom_api.assistant.discovery import PaperDiscoveryService
+from logic_loom_api.assistant.providers import retry as retry_mod
 from logic_loom_api.assistant.providers.errors import ProviderRateLimited, ProviderTimeout
 from logic_loom_api.config import Settings
 from logic_loom_api.deps import get_settings
@@ -73,21 +74,61 @@ def test_failed_provider_is_reported_not_just_logged(settings: Settings) -> None
     ]
 
 
-def test_rate_limit_is_retried_once(settings: Settings) -> None:
+@pytest.fixture()
+def waits(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record backoff sleeps instead of sleeping."""
+    recorded: list[float] = []
+
+    async def record(seconds: float) -> None:
+        recorded.append(seconds)
+
+    monkeypatch.setattr(asyncio, "sleep", record)
+    return recorded
+
+
+def test_rate_limit_is_retried(settings: Settings, waits: list[float]) -> None:
     oa = _Client(OA_HIT)
     s2 = _Client(ProviderRateLimited("429", provider="semantic_scholar", retry_after=2), S2_EMPTY)
     _papers, errors = asyncio.run(_service(settings, oa, s2).search_with_status("q"))
     assert s2.calls == 2
     assert errors == []
+    assert waits == [2.0]  # Retry-After wins over the 1 s first step
 
 
-def test_rate_limit_twice_is_reported_with_retry_after(settings: Settings) -> None:
+def test_rate_limit_backs_off_exponentially(settings: Settings, waits: list[float]) -> None:
+    limited = ProviderRateLimited("429", provider="semantic_scholar")
+    s2 = _Client(limited, limited, limited, S2_EMPTY)
+    _papers, errors = asyncio.run(_service(settings, _Client(OA_HIT), s2).search_with_status("q"))
+    assert s2.calls == 4
+    assert errors == []
+    assert len(waits) == 3
+    for wait, step in zip(waits, (1.0, 2.0, 4.0), strict=True):
+        assert step <= wait <= step * (1 + retry_mod.RATE_LIMIT_JITTER)
+
+
+def test_rate_limit_gives_up_after_max_attempts(settings: Settings, waits: list[float]) -> None:
+    limited = ProviderRateLimited("429", provider="semantic_scholar")
+    s2 = _Client(*([limited] * retry_mod.RATE_LIMIT_MAX_ATTEMPTS))
+    _papers, errors = asyncio.run(_service(settings, _Client(OA_HIT), s2).search_with_status("q"))
+    assert s2.calls == retry_mod.RATE_LIMIT_MAX_ATTEMPTS
+    assert errors[0]["error"] == "provider_rate_limited"
+
+
+def test_long_retry_after_is_reported_not_waited(settings: Settings, waits: list[float]) -> None:
     oa = _Client(OA_HIT)
     limited = ProviderRateLimited("429", provider="semantic_scholar", retry_after=30)
     s2 = _Client(limited, limited)
     _papers, errors = asyncio.run(_service(settings, oa, s2).search_with_status("q"))
+    assert s2.calls == 1
+    assert waits == []
     assert errors[0]["error"] == "provider_rate_limited"
     assert errors[0]["retry_after"] == 30
+
+
+def test_retry_wait_is_capped(settings: Settings, waits: list[float]) -> None:
+    s2 = _Client(ProviderRateLimited("429", provider="semantic_scholar", retry_after=12), S2_EMPTY)
+    asyncio.run(_service(settings, _Client(OA_HIT), s2).search_with_status("q"))
+    assert waits == [discovery_mod.RATE_LIMIT_RETRY_CAP_SECONDS]
 
 
 def test_providers_selection_skips_the_other(settings: Settings) -> None:
@@ -95,18 +136,6 @@ def test_providers_selection_skips_the_other(settings: Settings) -> None:
     s2 = _Client()
     asyncio.run(_service(settings, oa, s2).search_with_status("q", providers=["openalex"]))
     assert s2.calls == 0
-
-
-def test_retry_wait_is_capped(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> None:
-    waits: list[float] = []
-
-    async def record(seconds: float) -> None:
-        waits.append(seconds)
-
-    monkeypatch.setattr(asyncio, "sleep", record)
-    s2 = _Client(ProviderRateLimited("429", provider="semantic_scholar", retry_after=600), S2_EMPTY)
-    asyncio.run(_service(settings, _Client(OA_HIT), s2).search_with_status("q"))
-    assert waits == [discovery_mod.RATE_LIMIT_RETRY_CAP_SECONDS]
 
 
 # ── Route validation ────────────────────────────────────────────────────────

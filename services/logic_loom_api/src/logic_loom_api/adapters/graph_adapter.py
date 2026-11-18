@@ -9,6 +9,7 @@ import logging
 import shutil
 import tomllib
 from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from importlib import resources
@@ -328,14 +329,21 @@ def read_graph_issue_log(settings: Settings) -> dict[str, Any]:
 
 
 def set_graph_issue_ignored(settings: Settings, path: str | Path, *, ignored: bool) -> GraphIssueLog:
+    return set_graph_issues_ignored(settings, [path], ignored=ignored)
+
+
+def set_graph_issues_ignored(
+    settings: Settings, paths: Iterable[str | Path], *, ignored: bool
+) -> GraphIssueLog:
+    """Mark (or unmark) several issue paths in one write, then rescan."""
     ignore_path = graph_issue_ignore_path(settings)
     ignored_paths = _read_graph_issue_ignored_paths(settings)
-    normalized_path = _normalize_graph_issue_path(path)
+    normalized = {_normalize_graph_issue_path(p) for p in paths}
 
     if ignored:
-        ignored_paths.add(normalized_path)
+        ignored_paths |= normalized
     else:
-        ignored_paths.discard(normalized_path)
+        ignored_paths -= normalized
 
     _write_graph_issue_ignored_paths(ignore_path, ignored_paths)
     return scan_graph_sources(settings)

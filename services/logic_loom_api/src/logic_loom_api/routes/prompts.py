@@ -167,6 +167,15 @@ class _VariantPayload(BaseModel):
 
 
 def _payload_to_variant(payload: _VariantPayload, *, source: str = "user") -> PromptVariant:
+    if not _is_safe_filename(payload.filename):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unsafe filename: {payload.filename!r}. Must be a relative "
+                f"path starting with one of {_ALLOWED_FILENAME_PREFIXES} "
+                "with no '..' segments."
+            ),
+        )
     family = payload.family or payload.slot.split(".", 1)[0]
     variant_id = payload.id or slugify(payload.name)
     if not variant_id:

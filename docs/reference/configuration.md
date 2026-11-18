@@ -19,7 +19,7 @@ in [Configuration](../install/configuration.md).
 | `cache_path` | `Path` | computed | `LOGIC_LOOM_CACHE_PATH` | LogicLoom-owned cache (run history, port file, etc.). |
 | `nlm_mcp_url` | `str \| None` | unset | `LOGIC_LOOM_NLM_MCP_URL` | NotebookLM MCP server URL for document-grounded node generation (e.g. http://localhost:3000/sse). |
 | `nodes_folders` | `list[Path]` | computed | `LOGIC_LOOM_NODES_FOLDERS` | Staging directories scanned for AKMS node .md files in the Nodes Review tab. |
-| `nodes_editor` | `str \| None` | unset | `LOGIC_LOOM_NODES_EDITOR` | Editor command for opening nodes (e.g. 'code'). None = system default (macOS: open). |
+| `nodes_editor` | `str \| None` | unset | `LOGIC_LOOM_NODES_EDITOR` | Editor command for opening nodes (e.g. 'code'). None = system default (macOS: open). The Settings page accepts known editors with plain flags only; set any other program here in config.toml. |
 | `port` | `int \| None` | unset | `LOGIC_LOOM_PORT` | Fixed port, or None for --auto-port. |
 | `search_backend` | `Literal['ripgrep', 'qmd']` | `"ripgrep"` | `LOGIC_LOOM_SEARCH_BACKEND` | Default backend for /api/vault/search. |
 | `vault_qmd_collection` | `str \| None` | unset | `LOGIC_LOOM_VAULT_QMD_COLLECTION` | QMD collection name registered for the vault. Required when search_backend=qmd. |

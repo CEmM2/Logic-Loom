@@ -691,7 +691,7 @@ function NodesBlock({
         label="Editor command"
         value={draft.nodes_editor ?? ""}
         onChange={(v) => update("nodes_editor", v || null)}
-        placeholder="code  (empty = system default)"
+        placeholder="code, cursor, zed, subl, gedit, open…  (empty = system default)"
       />
     </Block>
   );

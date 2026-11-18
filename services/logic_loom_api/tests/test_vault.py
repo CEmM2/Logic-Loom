@@ -115,6 +115,18 @@ class TestPathTraversal:
         r = client.get("/api/vault/tree", params={"root": "../"})
         assert r.status_code == 403
 
+    @pytest.mark.parametrize(
+        "path", [".github/workflows/ci.yml", ".obsidian/config.json", ".gitignore", "Sub/../.gitignore"]
+    )
+    def test_hidden_files_are_not_readable(self, client: TestClient, path: str) -> None:
+        # Anything the tree hides cannot be read by guessing its path either.
+        r = client.get("/api/vault/file", params={"path": path})
+        assert r.status_code == 404
+
+    def test_hidden_folder_is_not_listable(self, client: TestClient) -> None:
+        r = client.get("/api/vault/tree", params={"root": ".github"})
+        assert r.status_code == 404
+
 
 class TestResolve:
     def test_paper_wikilink(self, client: TestClient) -> None:
