@@ -4,6 +4,7 @@ Full notes for each release. The [Changelog](../changelog.md) summarises them.
 
 | Release | Notes |
 | --- | --- |
+| v0.3.4 | [v0.3.4](v0.3.4.md): local API checks, Ctrl-K on Home, checksums that verify |
 | v0.3.3 | [v0.3.3](v0.3.3.md): no dead ends, Picker lists every batch, clearer messages, polish |
 | v0.3.2 | [v0.3.2](v0.3.2.md): local API token, input hardening, no orphaned sidecars |
 | v0.3.1 | [v0.3.1](v0.3.1.md): Linux packages run on glibc 2.35 (Ubuntu 22.04, Debian 12) and later |
