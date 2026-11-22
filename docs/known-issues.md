@@ -17,6 +17,15 @@ release's notes on the [Releases page](https://github.com/CEmM2/Logic-Loom-relea
   installer you downloaded says `OK`; the line for the manifest itself can be ignored.
   Later releases leave it out.
 
+## Windows
+
+- **"API unreachable" on start (up to v0.3.4).** These releases unpack the API
+  sidecar into `%TEMP%` on every launch, and antivirus scanning can make that slower
+  than the app waits. The sidecar usually finishes starting anyway: wait a minute,
+  then press **Ctrl+R** to reload the window. Each launch of these releases also
+  leaves a `_MEI…` folder of a few hundred MB in `%TEMP%`; delete those while the app
+  is closed. Later releases install the sidecar unpacked and wait longer.
+
 ## Linux
 
 - **glibc 2.35 or newer** (Ubuntu 22.04, Debian 12 or later) is required by the Linux

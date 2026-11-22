@@ -52,11 +52,23 @@ pub struct SidecarState {
     /// kills its child instead of storing it, so a window closed during
     /// startup cannot orphan the sidecar.
     pub shutting_down: AtomicBool,
+    /// Why the sidecar failed to start, for the frontend to show instead of a
+    /// bare timeout. Cleared if a late READY line still arrives.
+    pub error: Mutex<Option<String>>,
 }
 
 /// Environment variable the sidecar reads its token from. Contract with
 /// `logic_loom_api.auth.TOKEN_ENV`.
 const TOKEN_ENV: &str = "LOGIC_LOOM_API_TOKEN";
+
+/// How long `launch` waits for the READY line. A cold first start (antivirus
+/// scanning a freshly installed sidecar, a slow disk) can take far longer than
+/// a warm one, and the frontend waits at least this long too
+/// (`STARTUP_TIMEOUT_MS` in `src/api/client.ts`).
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(120);
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 /// 32 bytes from the OS CSPRNG, hex-encoded (64 chars).
 fn generate_token() -> Result<String, SidecarError> {
@@ -88,14 +100,30 @@ fn bundled_sidecar_path(app: &AppHandle) -> Result<PathBuf, SidecarError> {
         .path()
         .resource_dir()
         .map_err(|e| SidecarError::Resolve(format!("resource_dir unavailable: {e}")))?;
-
-    let binary_name = if cfg!(windows) {
-        "logic-loom-api.exe"
+    let path = sidecar_path_in(&resource_dir.join("binaries"));
+    if path.is_file() {
+        Ok(path)
     } else {
-        "logic-loom-api"
-    };
+        Err(SidecarError::Resolve(format!(
+            "sidecar binary not found at {}",
+            path.display()
+        )))
+    }
+}
 
-    Ok(resource_dir.join("binaries").join(binary_name))
+/// Where the sidecar sits inside the bundled `binaries` resource folder.
+///
+/// Windows ships a PyInstaller one-folder build
+/// (`binaries/logic-loom-api/logic-loom-api.exe` next to its `_internal`
+/// folder), so nothing is unpacked into `%TEMP%` at launch. macOS and Linux
+/// ship a one-file binary at `binaries/logic-loom-api`.
+#[cfg_attr(debug_assertions, allow(dead_code))]
+fn sidecar_path_in(binaries: &Path) -> PathBuf {
+    if cfg!(windows) {
+        binaries.join("logic-loom-api").join("logic-loom-api.exe")
+    } else {
+        binaries.join("logic-loom-api")
+    }
 }
 
 fn command_for_sidecar(_app: &AppHandle, _root: &Path) -> Result<Command, SidecarError> {
@@ -132,7 +160,16 @@ fn configure_sidecar_command(cmd: &mut Command) {
     }
 }
 
-#[cfg(not(unix))]
+/// The sidecar is a console program. Without `CREATE_NO_WINDOW`, starting it
+/// from the windowed app opens a console window, and closing that window
+/// kills the sidecar.
+#[cfg(windows)]
+fn configure_sidecar_command(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(any(unix, windows)))]
 fn configure_sidecar_command(_cmd: &mut Command) {}
 
 /// Compute a `PATH` that prepends the bin dirs where the agent CLIs (claude,
@@ -259,6 +296,7 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
                     {
                         let st = app_for_thread.state::<Arc<SidecarState>>();
                         *st.port.lock().unwrap() = Some(port);
+                        *st.error.lock().unwrap() = None;
                     }
                     let _ = app_for_thread.emit("logic-loom://ready", ReadyPayload { port });
                     let _ = tx.send(Ok(port));
@@ -272,7 +310,7 @@ pub fn launch(app: AppHandle) -> Result<u16, SidecarError> {
         }
     });
 
-    match rx.recv_timeout(Duration::from_secs(15)) {
+    match rx.recv_timeout(HANDSHAKE_TIMEOUT) {
         Ok(Ok(port)) => Ok(port),
         Ok(Err(msg)) => Err(SidecarError::HandshakeFailed(msg)),
         Err(_) => Err(SidecarError::HandshakeTimeout),
@@ -302,7 +340,6 @@ pub fn shutdown(app: &AppHandle) {
 #[cfg(windows)]
 fn kill_process_tree(pid: u32) {
     use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
     let _ = Command::new("taskkill")
         .args(["/PID", &pid.to_string(), "/T", "/F"])
         .creation_flags(CREATE_NO_WINDOW)
@@ -378,6 +415,20 @@ fn terminate_child(mut child: Child) {
     }
 }
 
+/// Record a failed start so `get_sidecar_error` can report it.
+pub fn record_launch_error(app: &AppHandle, message: String) {
+    let state = app.state::<Arc<SidecarState>>();
+    if state.port.lock().unwrap().is_none() {
+        *state.error.lock().unwrap() = Some(message);
+    }
+}
+
+/// Why the sidecar failed to start, or `None` while it is starting or running.
+#[tauri::command]
+pub fn get_sidecar_error(state: tauri::State<'_, Arc<SidecarState>>) -> Option<String> {
+    state.error.lock().unwrap().clone()
+}
+
 #[tauri::command]
 pub fn get_api_port(state: tauri::State<'_, Arc<SidecarState>>) -> Option<u16> {
     *state.port.lock().unwrap()
@@ -392,6 +443,17 @@ pub fn get_api_token(state: tauri::State<'_, Arc<SidecarState>>) -> Option<Strin
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidecar_path_matches_the_bundled_layout() {
+        let bin = Path::new("res").join("binaries");
+        let path = sidecar_path_in(&bin);
+        if cfg!(windows) {
+            assert_eq!(path, bin.join("logic-loom-api").join("logic-loom-api.exe"));
+        } else {
+            assert_eq!(path, bin.join("logic-loom-api"));
+        }
+    }
 
     #[test]
     fn parses_ready_line() {

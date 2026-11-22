@@ -26,7 +26,10 @@ const DEV_TOKEN = (import.meta.env.VITE_LOGIC_LOOM_API_TOKEN ?? "").trim() || nu
 /** Header and query-parameter names; contract with `logic_loom_api/auth.py`. */
 export const TOKEN_HEADER = "X-Logic-Loom-Token";
 export const TOKEN_QUERY_PARAM = "llt";
-const STARTUP_TIMEOUT_MS = 30_000;
+// Longer than the shell's own handshake timeout (`HANDSHAKE_TIMEOUT` in
+// src-tauri/src/sidecar.rs), so a slow first start is not reported as a
+// failure here while the shell is still waiting for it.
+const STARTUP_TIMEOUT_MS = 130_000;
 const POLL_INTERVAL_MS = 200;
 
 let cachedBase: string | null = null;
@@ -37,11 +40,21 @@ export function isTauriRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+/** The shell reported that the sidecar failed to start; waiting longer will not help. */
+export class SidecarStartError extends Error {
+  constructor(reason: string) {
+    super(`logic-loom-api failed to start: ${reason}`);
+    this.name = "SidecarStartError";
+  }
+}
+
 async function pollPort(maxAttempts = 60, intervalMs = 200): Promise<number> {
   const attempts = Math.max(1, maxAttempts);
   for (let i = 0; i < attempts; i++) {
     const port = await invoke<number | null>("get_api_port").catch(() => null);
     if (typeof port === "number") return port;
+    const reason = await invoke<string | null>("get_sidecar_error").catch(() => null);
+    if (typeof reason === "string" && reason) throw new SidecarStartError(reason);
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error(
@@ -56,6 +69,10 @@ async function waitForFirstResolved<T>(promises: Promise<T>[]): Promise<T> {
 
     for (const promise of promises) {
       promise.then(resolve).catch((error) => {
+        if (error instanceof SidecarStartError) {
+          reject(error);
+          return;
+        }
         errors.push(error);
         remaining -= 1;
         if (remaining === 0) {
@@ -112,7 +129,12 @@ export async function getApiBase(): Promise<string> {
       const base = `http://127.0.0.1:${port}`;
       cachedBase = base;
       return base;
-    })();
+    })().catch((error: unknown) => {
+      // Forget the failure so a later call (a reload, another route) asks again
+      // instead of replaying a stale timeout after the sidecar came up.
+      pendingResolve = null;
+      throw error;
+    });
   }
   return pendingResolve;
 }

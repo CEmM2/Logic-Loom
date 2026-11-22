@@ -1,15 +1,16 @@
 # Build from source
 
 A release build has two parts: the Python sidecar frozen with PyInstaller
-(`logic-loom-api`, or `logic-loom-api.exe` on Windows), and the Tauri desktop package
-that bundles it as a resource. Build each platform on that platform; cross-compiling this
+(a one-file `logic-loom-api` on macOS and Linux, a `logic-loom-api\` folder holding
+`logic-loom-api.exe` on Windows), and the Tauri desktop package that bundles it as a
+resource. Build each platform on that platform; cross-compiling this
 stack is not supported.
 
 | Platform | Sidecar | Desktop packages |
 | --- | --- | --- |
 | macOS | `logic-loom-api` | `.app`, `.dmg` |
 | Linux (Ubuntu/Debian) | `logic-loom-api` | `.AppImage`, `.deb` |
-| Windows 11 | `logic-loom-api.exe` | NSIS `-setup.exe`, `.msi` |
+| Windows 11 | `logic-loom-api\logic-loom-api.exe` (one-folder build) | NSIS `-setup.exe`, `.msi` |
 
 ## Prepare the machine
 
@@ -106,7 +107,11 @@ Before trusting a desktop package, run the frozen sidecar on its own:
 curl http://127.0.0.1:17321/api/app/health
 ```
 
-On Windows, run `.\apps\desktop\src-tauri\binaries\logic-loom-api.exe --port 17321`.
+On Windows, run `.\apps\desktop\src-tauri\binaries\logic-loom-api\logic-loom-api.exe --port 17321`.
+The Windows sidecar is a one-folder build because a one-file build unpacks its whole
+payload into `%TEMP%` on every launch, which antivirus scanning can slow past the
+app's startup wait. `pnpm sidecar:build:windows` also checks that the built sidecar
+announces READY within 60 seconds.
 
 ## Where the packages land
 
