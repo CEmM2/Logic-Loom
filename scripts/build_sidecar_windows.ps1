@@ -93,7 +93,13 @@ $ExportArgs = @(
 $PyinstallerArgs = @(
   "--clean",
   "--noconfirm",
-  "--onefile",
+  # One-folder, not one-file, on Windows. A one-file build unpacks its whole
+  # payload (thousands of files, several hundred MB) into %TEMP% on every
+  # launch, and antivirus scanning of those writes routinely pushed startup
+  # past the shell's handshake timeout. Force-killing the one-file bootloader
+  # on exit also left the unpacked folder behind in %TEMP%. The folder build
+  # is unpacked once, by the installer.
+  "--onedir",
   "--name", "logic-loom-api",
   "--workpath", $PyiWork,
   "--distpath", $PyiDist,
@@ -179,13 +185,51 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "[sidecar] freezing logic-loom-api"
 & pyinstaller @PyinstallerArgs $Entry
+if ($LASTEXITCODE -ne 0) {
+  Write-Error "[sidecar] pyinstaller failed with exit code $LASTEXITCODE"
+  exit $LASTEXITCODE
+}
 
-Write-Host "[sidecar] copying binary into Tauri resources"
-Copy-Item (Join-Path $PyiDist "logic-loom-api.exe") (Join-Path $BinDir "logic-loom-api.exe") -Force
+# The shell looks for binaries\logic-loom-api\logic-loom-api.exe (see
+# apps/desktop/src-tauri/src/sidecar.rs). Remove both the folder and any
+# one-file binary left by an older build, so only one layout is bundled.
+$SidecarDir = Join-Path $BinDir "logic-loom-api"
+$SidecarExe = Join-Path $SidecarDir "logic-loom-api.exe"
+Write-Host "[sidecar] copying the sidecar folder into Tauri resources"
+Remove-Item -Recurse -Force $SidecarDir, (Join-Path $BinDir "logic-loom-api.exe") -ErrorAction SilentlyContinue
+Copy-Item -Recurse (Join-Path $PyiDist "logic-loom-api") $SidecarDir
 
-Write-Host "[sidecar] smoke test: binary exists"
-Get-Item (Join-Path $BinDir "logic-loom-api.exe")
+Write-Host "[sidecar] smoke test: the sidecar announces READY"
+# Same handshake the shell waits for. The limit here is well under the shell's
+# so a slow-starting build fails the build instead of reaching users.
+$SmokeLimitSeconds = 60
+$Psi = New-Object System.Diagnostics.ProcessStartInfo
+$Psi.FileName = $SidecarExe
+$Psi.Arguments = "--auto-port"
+$Psi.UseShellExecute = $false
+$Psi.RedirectStandardOutput = $true
+$Psi.CreateNoWindow = $true
+$Watch = [System.Diagnostics.Stopwatch]::StartNew()
+$Proc = [System.Diagnostics.Process]::Start($Psi)
+$ReadLine = $Proc.StandardOutput.ReadLineAsync()
+$Ready = $false
+while ($Watch.Elapsed.TotalSeconds -lt $SmokeLimitSeconds) {
+  if ($ReadLine.Wait(500)) {
+    $Line = $ReadLine.Result
+    if ($null -eq $Line) { break }
+    if ($Line -match '^LOGIC_LOOM_API_READY:\d+$') { $Ready = $true; break }
+    $ReadLine = $Proc.StandardOutput.ReadLineAsync()
+  }
+}
+$Elapsed = [math]::Round($Watch.Elapsed.TotalSeconds, 1)
+& taskkill /PID $Proc.Id /T /F | Out-Null
+if (-not $Ready) {
+  Write-Error "[sidecar] sidecar did not announce READY within $SmokeLimitSeconds s"
+  exit 1
+}
+Write-Host "[sidecar] sidecar ready after $Elapsed s"
 
 Remove-Item -Force $LockedRequirements -ErrorAction SilentlyContinue
 
 Write-Host "[sidecar] done"
+exit 0
