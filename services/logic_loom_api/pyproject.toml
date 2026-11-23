@@ -5,7 +5,7 @@ description = "Façade FastAPI service for Logic-Loom: mounts AKMS batch picker,
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 dependencies = [
-    "fastapi>=0.141.1,<1",
+    "fastapi>=0.163.1,<1",
     "uvicorn[standard]>=0.30,<0.40",
     "pydantic>=2.7,<3.0",
     "pydantic-settings>=2.4,<3.0",
