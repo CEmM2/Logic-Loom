@@ -85,7 +85,11 @@ export function BatchesPage() {
 
   const addBatchMut = useMutation({
     mutationFn: () => {
-      const stamp = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+      // \D rather than a bracketed character class listing the separators:
+      // Tailwind reads square brackets around a colon-separated pair anywhere
+      // in source text, comments included, as an arbitrary-property class,
+      // and the rule it emitted for that regex was invalid CSS.
+      const stamp = new Date().toISOString().replace(/\D/g, "").slice(0, 14);
       return createBatch({ title: `New batch ${stamp}` });
     },
     onSuccess: (batch) => {
